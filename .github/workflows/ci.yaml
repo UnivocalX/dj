@@ -22,8 +22,8 @@ jobs:
       cancel-in-progress: true
 
     env:
-      PYTHON_VERSION: "3.10"
-      RUFF_TARGET_VERSION: "py310"
+      PYTHON_VERSION: "3.12"
+      RUFF_TARGET_VERSION: "py312"
 
     steps:
       - name: Checkout Code
