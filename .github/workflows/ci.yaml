@@ -1,0 +1,95 @@
+name: Python App CI
+run-name: "CI Run #${{ github.run_id }} on ${{ github.ref_name }} triggered by ${{ github.event_name }} | Commit: ${{ github.event.head_commit.message }}"
+
+on:
+  push:
+    branches:
+      - main
+      - "feat/**"
+      - "patch/**"
+      - "experiment/**"
+    paths-ignore:
+      - "**.md"
+      - "docs/**"
+      - ".gitignore"
+
+jobs:
+  continuous-integration:
+    runs-on: ubuntu-latest
+
+    concurrency:
+      group: ${{ github.workflow }}-${{ github.ref }}
+      cancel-in-progress: true
+
+    env:
+      PYTHON_VERSION: "3.10"
+      RUFF_TARGET_VERSION: "py310"
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: Debug
+        run: |
+          echo "PWD: $(pwd)"
+          ls -l
+          cat pyproject.toml
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: "pip"
+
+      - name: Setup Tools
+        run: |
+          pip install poetry==1.7.0 ruff==0.12.4 mypy==1.9.0 pytest==8.0.0 pytest-cov==4.1.0
+          poetry config virtualenvs.create false
+          poetry install
+
+      - name: Lint
+        run: |
+          ruff check --fix
+
+      - name: Type Checks
+        run: |
+          mypy src/ --config-file pyproject.toml --ignore-missing-imports --python-version ${{ env.PYTHON_VERSION }}
+
+      - name: Tests
+        run: |
+          export PYTHONPATH=${{ github.workspace }}
+          export CI=true
+          pytest tests/
+
+      - name: Format
+        run: |
+          ruff format
+
+      - name: Push Formatting
+        run: |
+          git config --global user.name "GitHub Actions"
+          git config --global user.email "actions@github.com"
+          git add -u
+          git diff --cached --quiet || (git commit -m "Apply automatic formatting [skip ci]" && git push)
+
+      - name: Version Increment
+        run: |
+          if [[ "${{ github.ref_name }}" == "main" ]]; then
+            if [[ "${{ github.event.head_commit.message }}" == *"feat"* ]]; then
+              poetry version minor
+            elif [[ "${{ github.event.head_commit.message }}" == *"patch"* ]]; then
+              poetry version patch
+            elif [[ "${{ github.event.head_commit.message }}" == *"major"* ]] ; then
+              poetry version major
+            fi
+          else
+            poetry version prerelease
+          fi
+
+          git config --global user.name "GitHub Actions"
+          git config --global user.email "actions@github.com"
+          git add pyproject.toml
+          git diff --cached --quiet || (git commit -m "Bump version to $(poetry version -s) [skip ci]" && git push)
