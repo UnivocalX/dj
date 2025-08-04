@@ -6,6 +6,7 @@ from importlib.resources import files as resource_files
 from logging import Logger, getLogger
 from typing import Iterable, TypeVar
 
+from pydantic.alias_generators import to_pascal as snake2pascal
 from tqdm import tqdm
 
 from dj.constants import ASSETS_DIRECTORY, FALSE_STRINGS, PROGRAM_NAME, TRUE_STRINGS
@@ -150,38 +151,76 @@ def collect_files(
 
 
 def format_file_size(size_bytes: int, unit: str | None = None) -> str:
-    units: list[str] = ["B", "KB", "MB", "GB", "TB"]
-    unit: str | None = unit.upper() if unit else None
+    units: list[str] = ["B", "KB", "MB", "GB", "TB", "PB"]
+    original_size: float = float(size_bytes)
+    result: str = ""
 
-    if unit and unit in units:
-        index = units.index(unit)
-        size = size_bytes / (1024**index)
-        return f"{size:.2f}{unit}"
+    if unit:
+        unit = unit.upper()
+        if unit in units:
+            index: int = units.index(unit)
+            size: float = original_size / (1024**index)
+            result = f"{size:.2f}{unit}"
+        else:
+            result = f"{original_size:.2f}B"
+    else:
+        size = original_size
+        for u in units:
+            if size < 1024.0 or u == units[-1]:
+                result = f"{size:.2f}{u}"
+                break
+            size /= 1024.0
 
-    # Auto-scale
-    for u in units:
-        if size_bytes < 1024.0:
-            return f"{size_bytes:.2f}{u}"
-        size_bytes /= 1024.0
-
-    return f"{size_bytes:.2f}PB"
+    return result
 
 
 def pretty_bar(
     iterable: Iterable[T],
     disable: bool = False,
+    unit: str = "it",
     desc: str = "Processing",
 ) -> Iterable[T]:
     print()
+    try:
+        total = len(iterable)
+    except TypeError:
+        total = None
+
+    # Set miniters to 1% of total, but at least 1
+    miniters = max(1, int((total or 100) * 0.01))
+
     return tqdm(
         iterable,
         desc=f"{desc}",
-        unit="file",
         ncols=100,
+        unit=unit,
         colour="green",
         disable=disable,
         mininterval=0.05,
-        miniters=10,
+        miniters=miniters,
         bar_format="{l_bar}{bar} | {n_fmt}/{total_fmt} {unit} [{elapsed}<{remaining}, {rate_fmt}]",
         leave=True,
     )
+
+
+
+def pretty_format(
+    data: dict,
+    sep: str = ": ",
+    indent: int = 4,
+    title: str | None = None,
+) -> str:
+    """
+    Format a dict as:
+    <Title>:
+        - Key: Value
+    Keys are converted to CamelCase.
+    """
+    lines = []
+    if title:
+        lines.append(f"{title}:")
+    prefix = " " * indent + "- "
+    for k, v in data.items():
+        camel_key = snake2pascal(str(k))
+        lines.append(f"{prefix}{camel_key}{sep}{v}")
+    return "\n".join(lines) + "\n"

@@ -1,125 +1,116 @@
 import os
 import tempfile
+from contextlib import contextmanager
 from logging import Logger, getLogger
 
 from dj.inspect import FileInspector
-from dj.schemes import DJCFG, FileMetadata, LoadDataCFG, StorageCFG
-from dj.storage import DataStorage
-from dj.utils import (
-    collect_files,
-    merge_s3uri,
-    pretty_bar,
-)
+from dj.schemes import FileMetadata, LoadDataConfig
+from dj.storage import Storage
+from dj.utils import collect_files, merge_s3uri, pretty_bar, pretty_format
 
 logger: Logger = getLogger(__name__)
 
 
+def resolve_data_s3uri(
+    s3bucket: str,
+    s3prefix: str,
+    domain: str,
+    dataset_id: str,
+    stage: str,
+    mime_type: str,
+    filename: str,
+) -> str:
+    return merge_s3uri(
+        s3bucket, s3prefix, domain, dataset_id, stage, mime_type, filename
+    )
+
+
 class DataLoader:
-    def __init__(
-        self, dj_cfg: DJCFG, cfg: LoadDataCFG, storage_cfg: StorageCFG | None = None
-    ):
-        self.cfg: LoadDataCFG = cfg
-        self.dj_cfg: DJCFG = dj_cfg
-        self.storage: DataStorage = DataStorage(storage_cfg)
+    def __init__(self, cfg: LoadDataConfig):
+        self.cfg: LoadDataConfig = cfg
+        self.storage: Storage = Storage(cfg)
 
     def _gather_datafiles(self) -> set[str]:
-        datafiles: set[str] = {}
+        datafiles: set[str] = set()
 
         logger.info(f"attempting to load data, filters: {self.cfg.filters}")
-        if self.cfg.file_src.startswith("s3://"):
+        if self.cfg.data_src.startswith("s3://"):
             logger.info("gathering data from S3")
 
             s3objcets: list[str] = self.storage.list_objects(
-                self.cfg.file_src,
+                self.cfg.data_src,
                 self.cfg.filters,
             )
 
             for s3obj in s3objcets:
-                datafiles.add(merge_s3uri(self.cfg.file_src, s3obj))
+                datafiles.add(merge_s3uri(self.cfg.data_src, s3obj))
         else:
             logger.info("gathering data from local storage")
-            datafiles = collect_files(self.cfg.file_src, self.cfg.filters)
+            datafiles = collect_files(self.cfg.data_src, self.cfg.filters)
 
-        logger.info(f'Gathered {len(datafiles)} file\\s from "{self.cfg.file_src}"')
+        logger.info(f'Gathered {len(datafiles)} file\\s from "{self.cfg.data_src}"')
         return datafiles
 
-    def _inspect_datafile(self, datafile: str) -> FileMetadata:
-        if datafile.startswith("s3://"):
+    def _process_datafile(self, datafile_src: str) -> tuple[str, FileMetadata]:
+        with self._get_local_file(datafile_src) as local_path:
+            metadata: FileMetadata = self._inspect_file(local_path)
+            dst_s3uri: str = self._upload2s3(local_path, metadata)
+            return dst_s3uri, metadata
+
+    @contextmanager
+    def _get_local_file(self, datafile_src: str):
+        if datafile_src.startswith("s3://"):
             tmpfile: str = os.path.join(
-                tempfile.gettempdir(), os.path.basename(datafile)
+                tempfile.gettempdir(), os.path.basename(datafile_src)
             )
+            self.storage.download_obj(datafile_src, tmpfile)
             try:
-                self.storage.download_obj(datafile, tmpfile)
-                inspector = FileInspector(tmpfile)
+                yield tmpfile
             finally:
                 if os.path.exists(tmpfile):
                     os.remove(tmpfile)
         else:
-            inspector = FileInspector(datafile)
+            yield datafile_src
 
+    def _inspect_file(self, local_path: str) -> FileMetadata:
+        inspector: FileInspector = FileInspector(local_path)
         return inspector.metadata
 
-    def _inspect_datafiles(self, datafiles: set[str]) -> dict[str, FileMetadata]:
-        logger.info(f"Starting to inspect {len(datafiles)} file\\s")
-
-        files_metadata: dict[str, FileMetadata] = {}
-        for datafile in pretty_bar(
-            datafiles,
-            disable=not self.dj_cfg.colors,
-            desc="🔍 Inspecting",
-        ):
-            try:
-                metadata: FileMetadata = self._inspect_datafile(datafile)
-            except Exception as e:
-                logger.debug(e, exc_info=True)
-                logger.error(f"failed to inspect {datafile}")
-            else:
-                files_metadata[datafile] = metadata
-
-        logger.info(f"Gathered metadata from {len(files_metadata)} file\\s")
-        return files_metadata
-
-    def _s3load(self, datafiles_metadata: dict[str, FileMetadata]) -> dict[str, str]:
-        logger.info(f"starting to upload {len(datafiles_metadata)} datafiles.")
-
-        uploaded: dict[str, str] = {}
-        for data_src in pretty_bar(
-            datafiles_metadata.keys(),
-            disable=not self.dj_cfg.colors,
-            desc="🔍 Uploading",
-        ):
-            data_s3uri: str = self.storage.resolve_data_s3uri(
-                self.dj_cfg.s3bucket,
-                self.dj_cfg.s3prefix,
-                self.cfg.domain,
-                self.cfg.dataset_id,
-                self.cfg.stage,
-                datafiles_metadata[data_src].mime_type,
-                datafiles_metadata[data_src].filename,
-            )
-            try:
-                self.storage.upload(datafiles_metadata[data_src].filepath, data_s3uri)
-            except Exception as e:
-                logger.debug(e, exc_info=True)
-                logger.error(
-                    f"failed to upload {datafiles_metadata[data_src].filepath}"
-                )
-            else:
-                uploaded[data_src] = datafiles_metadata[data_s3uri]
-
-        return uploaded
+    def _upload2s3(self, local_path: str, metadata: FileMetadata) -> str:
+        dst_s3uri: str = resolve_data_s3uri(
+            self.cfg.s3bucket,
+            self.cfg.s3prefix,
+            self.cfg.domain,
+            self.cfg.dataset_id,
+            self.cfg.stage,
+            metadata.mime_type,
+            metadata.filename,
+        )
+        # self.storage.upload(local_path, dst_s3uri)
+        return dst_s3uri
 
     def load(self) -> None:
         datafiles: set[str] = self._gather_datafiles()
         if not datafiles:
-            raise ValueError(f"Failed to aggregate data files from {self.cfg.file_src}")
+            raise ValueError(f"Failed to gather data files from {self.cfg.data_src}")
 
-        datafiles_metadata: dict[str, FileMetadata] = self._inspect_datafiles(datafiles)
-        if not datafiles_metadata:
-            raise ValueError(f"Failed to inspect data files ({self.cfg.file_src}).")
+        logger.info(f"Starting to process {len(datafiles)} file\\s")
+        processed_datafiles: dict[str, FileMetadata] = {}
+        for datafile in pretty_bar(
+            datafiles, disable=self.cfg.plain, desc="⚙️ Processing", unit="file"
+        ):
+            try:
+                dst_s3uri, metadata = self._process_datafile(datafile)
+            except Exception as e:
+                logger.debug(e)
+                logger.error(f"Failed to load {datafile}.")
+            else:
+                data: dict = metadata.model_dump(exclude={'filepath'})
+                data['S3URI'] = dst_s3uri
+                logger.info(pretty_format(data, title='Loaded File Metadata'))
+                processed_datafiles[dst_s3uri] = metadata
 
-        loaded_s3data_mapping: dict[str, str] = self._s3load(datafiles_metadata)
-        if not loaded_s3data_mapping:
-            raise ValueError(f"Failed to load data ({self.cfg.file_src}) into s3.")
+        if not processed_datafiles:
+            raise ValueError(f"Failed to load datafiles ({self.cfg.data_src}).")
 
-        logger.info(f"Successfully loaded: {len(loaded_s3data_mapping)} file\\s.")
+        logger.info(f"Successfully loaded: {len(processed_datafiles)} file\\s.")

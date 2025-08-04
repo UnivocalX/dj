@@ -1,20 +1,19 @@
 import os
-import warnings
 from functools import cached_property
 from logging import Logger, getLogger
 
 import yaml
 
-from dj.constants import DJCFG_FILENAME
-from dj.schemes import DJCFG, ConfigureDJCFG
+from dj.constants import DJCFG_FILENAME, PROGRAM_NAME
+from dj.schemes import ConfigureDJConfig, DJConfig
 from dj.utils import resolve_internal_dir
 
 logger: Logger = getLogger(__name__)
 
 
 class DJManager:
-    def __init__(self, cfg: DJCFG | None = None, warn: bool = True):
-        self._cfg: DJCFG | None = cfg
+    def __init__(self, cfg: DJConfig | None = None, warn: bool = True):
+        self._cfg: DJConfig | None = cfg
         self.warn: bool = warn
 
     @cached_property
@@ -22,42 +21,35 @@ class DJManager:
         return os.path.join(resolve_internal_dir(), DJCFG_FILENAME)
 
     @cached_property
-    def cfg(self) -> DJCFG:
-        not self.warn or warnings.filterwarnings("default")
-
+    def cfg(self) -> DJConfig:
         # Load config from file if exists
         dict_cfg: dict = {}
+        logger.info(f"Loading configuration from {self.cfg_filepath}")
         if os.path.isfile(self.cfg_filepath):
             with open(self.cfg_filepath, "r") as file:
                 dict_cfg = yaml.safe_load(file) or {}
-        else:
-            warnings.warn(f"Missing config file ({self.cfg_filepath}).")
-
-        # Start with default config
-        cfg: DJCFG = DJCFG()
+        elif self.warn:
+            logger.warning("Missing config file.")
 
         try:
             # Update with file config if available
-            if dict_cfg:
-                cfg = DJCFG(**dict_cfg)
+            cfg: DJConfig = DJConfig(**dict_cfg)
         except ValueError as e:
-            warnings.warn(f"Invalid config file ({self.cfg_filepath})\n{str(e)}")
+            logger.warning(f"Invalid config ({self.cfg_filepath})\n{str(e)}")
 
         # Override with instance config if provided
         if self._cfg is not None:
             cfg = self._cfg.model_copy(update=cfg.model_dump(exclude_unset=True))
-
-        warnings.filterwarnings("ignore")
         return cfg
 
-    def configure(self, cfg: ConfigureDJCFG) -> None:
+    def configure(self, cfg: ConfigureDJConfig) -> None:
         logger.debug(f"new config: {cfg.model_dump()}")
-        current_cfg_dict: dict[str] = self.cfg.model_dump()
-        updates: dict[str] = cfg.model_dump(exclude_unset=True)
+        current_cfg_dict: dict = self.cfg.model_dump()
+        updates: dict = cfg.model_dump(exclude_unset=True)
 
         # Determine if we actually need to update anything
         needs_update: bool = False
-        updated_cfg: dict[str] = current_cfg_dict.copy()
+        updated_cfg: dict = current_cfg_dict.copy()
 
         if "set_s3prefix" in updates and updates["set_s3prefix"] != self.cfg.s3prefix:
             updated_cfg["s3prefix"] = updates["set_s3prefix"]
@@ -67,21 +59,23 @@ class DJManager:
             updated_cfg["s3bucket"] = updates["set_s3bucket"]
             needs_update = True
 
-        if "set_verbose" in updates and updates["set_verbose"] != self.cfg.verbose:
-            updated_cfg["verbose"] = updates["set_verbose"]
-            needs_update = True
-
-        if "set_log_dir" in updates and updates["set_log_dir"] != self.cfg.log_dir:
-            updated_cfg["log_dir"] = updates["set_log_dir"]
-            needs_update = True
-
-        if "enable_colors" in updates and updates["enable_colors"] != self.cfg.colors:
-            updated_cfg["colors"] = updates["enable_colors"]
+        if (
+            "set_s3endpoint" in updates
+            and updates["set_s3endpoint"] != self.cfg.s3endpoint
+        ):
+            updated_cfg["s3endpoint"] = updates["set_s3endpoint"]
             needs_update = True
 
         if needs_update:
             with open(self.cfg_filepath, "w") as file:
                 yaml.dump(updated_cfg, file)
-            logger.info(f"Configuration successfully updated ({self.cfg_filepath})")
+            logger.info("Configuration successfully updated")
         else:
             logger.debug("No configuration changes needed")
+
+        updated_cfg_content: str = yaml.dump(updated_cfg)
+        logger.info(
+            f"{PROGRAM_NAME.upper()} Configuration:\n"
+            "----------------------\n"
+            f"{updated_cfg_content}"
+        )
