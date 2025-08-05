@@ -1,45 +1,37 @@
 #!python3.12
 from logging import Logger, getLogger
 
-import yaml
-
 from dj.cli import parser
 from dj.commands.config import DJManager
 from dj.commands.load import DataLoader
 from dj.constants import PROGRAM_NAME
 from dj.logging import configure_logging
-from dj.schemes import DJCFG, ConfigureDJCFG, LoadDataCFG
+from dj.schemes import ConfigureDJConfig, DJConfig, DJConfigCLI, LoadDataConfig
 
 logger: Logger = getLogger(PROGRAM_NAME)
 
 
 def main() -> None:
-    cli_cfg: dict[str] = parser(PROGRAM_NAME)
-    dj_manager: DJManager = DJManager(DJCFG(**cli_cfg))
-
-    log_filepath: str = configure_logging(
+    parsed_arguments: dict = parser(PROGRAM_NAME)
+    dj_cli_cfg: DJConfigCLI = DJConfigCLI(**parsed_arguments)
+    configure_logging(
         PROGRAM_NAME,
-        log_dir=dj_manager.cfg.log_dir,
-        enable_colors=dj_manager.cfg.colors,
-        verbose=dj_manager.cfg.verbose,
+        log_dir=dj_cli_cfg.log_dir,
+        plain=dj_cli_cfg.plain,
+        verbose=dj_cli_cfg.verbose,
     )
 
+    dj_manager: DJManager = DJManager(DJConfig(**parsed_arguments))
+
+    logger.debug(f"CLI Arguments: {parsed_arguments}")
+    logger.debug(f"DJ CLI Config: {dj_cli_cfg.model_dump()}")
     logger.debug(f"DJ Config: {dj_manager.cfg.model_dump()}")
-    logger.debug(f"CLI Arguments: {cli_cfg}")
-    logger.debug(f"Log file path: {log_filepath}")
 
-    match cli_cfg["command"]:
+    match dj_cli_cfg.command:
         case "config":
-            dj_manager.configure(ConfigureDJCFG(**cli_cfg))
-
-            if cli_cfg.get("show"):
-                cfg_content: str = yaml.dump(dj_manager.cfg.model_dump())
-                logger.info(
-                    f"{PROGRAM_NAME.upper()} Configuration:\n"
-                    "----------------------\n"
-                    f"{cfg_content}"
-                )
-                logger.info(f"Config file: {dj_manager.cfg_filepath}")
+            dj_manager.configure(ConfigureDJConfig(**parsed_arguments))
         case "load":
-            data_loader: DataLoader = DataLoader(dj_manager.cfg, LoadDataCFG(**cli_cfg))
-            data_loader.load()
+            with DataLoader(
+                LoadDataConfig(**dj_manager.cfg.model_dump(), **parsed_arguments)
+            ) as data_loader:
+                data_loader.load()

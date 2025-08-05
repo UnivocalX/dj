@@ -2,29 +2,21 @@ import json
 import logging
 import os
 from datetime import datetime
-from logging import StreamHandler
 from logging.handlers import RotatingFileHandler
-from pathlib import Path
+
+from tqdm import tqdm
 
 from dj.utils import resolve_internal_dir
 
 
-def get_logs_dir() -> Path:
-    environ_logs_dir: str = os.environ.get("LOGS_DIR")
-    if environ_logs_dir:
-        log_dir: Path = Path(environ_logs_dir)
-    # Determine appropriate log directory based on platform
-    else:
-        log_dir: Path = Path(resolve_internal_dir()) / "logs"
-
-    # Create directory if it doesn't exist
-    log_dir.mkdir(parents=True, exist_ok=True)
-
-    return log_dir
+def get_logs_dir() -> str:
+    environ_logs_dir: str | None = os.environ.get("LOGS_DIR")
+    if not environ_logs_dir:
+        environ_logs_dir = os.path.join(resolve_internal_dir(), "logs")
+    return environ_logs_dir
 
 
 class ColoredFormatter(logging.Formatter):
-    # ANSI color codes
     COLORS: dict[str, str] = {
         "DEBUG": "\033[36m",  # Cyan
         "INFO": "\033[32m",  # Green
@@ -35,15 +27,9 @@ class ColoredFormatter(logging.Formatter):
     RESET: str = "\033[0m"  # Reset color
 
     def format(self, record) -> str:
-        # Get the original formatted message
         formatted: str = super().format(record)
-
-        # Add color to the entire message if this is console output
-        if hasattr(record, "console_output") and record.console_output:
-            color = self.COLORS.get(record.levelname, "")
-            formatted = f"{color}{formatted}{self.RESET}"
-
-        return formatted
+        color = self.COLORS.get(record.levelname, "")
+        return f"{color}{formatted}{self.RESET}"
 
 
 class JsonFormatter(logging.Formatter):
@@ -55,7 +41,7 @@ class JsonFormatter(logging.Formatter):
 
     def format(self, record: logging.LogRecord) -> str:
         """Format log record as JSON string."""
-        log_record: dict[str] = {
+        log_record: dict[str, str | int] = {
             "timestamp": datetime.now().isoformat(),
             "name": record.name,
             "level": record.levelname,
@@ -78,10 +64,22 @@ class JsonFormatter(logging.Formatter):
         return json.dumps(log_record)
 
 
+class TqdmLoggingHandler(logging.StreamHandler):
+    """A logging handler that uses tqdm.write() to avoid breaking progress bars."""
+
+    def emit(self, record):
+        try:
+            msg = self.format(record)
+            tqdm.write(msg)
+            self.flush()
+        except Exception:
+            self.handleError(record)
+
+
 def configure_logging(
     prog_name: str,
     log_dir: str | None = None,
-    enable_colors: bool = True,
+    plain: bool = False,
     verbose: bool = False,
 ) -> str:
     # Set log levels based on verbose flag
@@ -89,35 +87,32 @@ def configure_logging(
     console_level: str = "DEBUG" if verbose else "INFO"
 
     # Create formatters
-    if enable_colors:
-        if verbose:
-            console_formatter = ColoredFormatter(
-                "%(asctime)s | %(name)s | %(levelname)s | %(message)s",
-                datefmt="%H:%M:%S",
-            )
-        else:
-            console_formatter = ColoredFormatter("%(message)s")
+    if plain:
+        formatter_cls = logging.Formatter
     else:
-        if verbose:
-            console_formatter = logging.Formatter(
-                "%(asctime)s | %(name)s | %(levelname)s | %(message)s",
-                datefmt="%H:%M:%S",
-            )
-        else:
-            console_formatter = logging.Formatter("%(message)s")
+        formatter_cls = ColoredFormatter
+
+    if verbose:
+        fmt: str = "%(asctime)s | %(name)s | %(levelname)s | %(message)s"
+        datefmt: str | None = "%H:%M:%S"
+    else:
+        fmt = "%(message)s"
+        datefmt = None
+
+    if datefmt:
+        console_formatter = formatter_cls(fmt, datefmt=datefmt)
+    else:
+        console_formatter = formatter_cls(fmt)
 
     # Create log directory if it doesn't exist
     if not log_dir:
         log_dir = get_logs_dir()
 
-    log_dir = Path(log_dir)
-    log_dir.mkdir(parents=True, exist_ok=True)
-
-    log_path = log_dir / f"{prog_name}.log"
-
     # Create rotating file handler with JSON formatting
+    os.makedirs(log_dir, exist_ok=True)
+    log_path: str = os.path.join(log_dir, f"{prog_name}.log")
     file_handler = RotatingFileHandler(
-        filename=str(log_path),
+        filename=log_path,
         mode="a",
         maxBytes=500 * 1024 * 1024,  # 500MB
         backupCount=5,  # Keep 5 rotated logs (total: 2.5GB max)
@@ -127,13 +122,13 @@ def configure_logging(
     file_handler.setLevel(log_level)
     file_handler.setFormatter(JsonFormatter(verbose=verbose))
 
-    # Create console handler
-    console_handler = StreamHandler()
+    # Use TqdmLoggingHandler for console output
+    console_handler = TqdmLoggingHandler()
     console_handler.setLevel(console_level)
     console_handler.setFormatter(console_formatter)
 
     # Add color filtering if enabled
-    if enable_colors:
+    if plain:
 
         class ConsoleFilter(logging.Filter):
             def filter(self, record):
@@ -155,4 +150,4 @@ def configure_logging(
     logger.debug(f"Verbose mode: {verbose}")
     logger.debug(f"Log file: {log_path}")
 
-    return str(log_path)
+    return log_path

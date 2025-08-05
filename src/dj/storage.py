@@ -6,15 +6,15 @@ from boto3 import client
 from botocore.config import Config as BotoConfig
 from botocore.exceptions import ClientError
 
-from dj.schemes import StorageCFG
-from dj.utils import merge_s3uri, split_s3uri
+from dj.schemes import StorageConfig
+from dj.utils import split_s3uri
 
 logger: Logger = getLogger(__name__)
 
 
-class DataStorage:
-    def __init__(self, cfg: StorageCFG | None = None):
-        self.cfg: StorageCFG = cfg or StorageCFG()
+class Storage:
+    def __init__(self, cfg: StorageConfig | None = None):
+        self.cfg: StorageConfig = cfg or StorageConfig()
 
     @property
     def client(self) -> client:
@@ -22,21 +22,19 @@ class DataStorage:
             retries={"max_attempts": 3, "mode": "standard"}
         )
 
-        client_params: dict[str] = {
+        client_params: dict = {
             "config": client_config,
         }
-        if self.cfg.access_keys:
-            client_params.update(
-                "aws_access_key_id",
-                self.cfg.access_keys.access_key_id.get_secret_value(),
+        if self.cfg.access_key_id and self.cfg.secret_access_key:
+            client_params["aws_access_key_id"] = (
+                self.cfg.access_key_id.get_secret_value()
             )
-            client_params.update(
-                "aws_secret_access_key",
-                self.cfg.access_keys.secret_access_key.get_secret_value(),
+            client_params["aws_secret_access_key"] = (
+                self.cfg.secret_access_key.get_secret_value()
             )
 
-        if self.cfg.endpoint:
-            client_params["endpoint_url"] = self.cfg.endpoint
+        if self.cfg.s3endpoint:
+            client_params["endpoint_url"] = self.cfg.s3endpoint
 
         return client("s3", **client_params)
 
@@ -92,7 +90,7 @@ class DataStorage:
             for obj in page["Contents"]:
                 object_name: str = posixpath.basename(obj["Key"])
                 if not extensions or object_name.lower().endswith(tuple(extensions)):
-                    found_objects.add(object_name)
+                    found_objects.append(object_name)
 
         logger.info(f"found {len(found_objects)} file\\s")
         return found_objects
@@ -127,17 +125,3 @@ class DataStorage:
         with open(dst_path, "wb") as f:
             self.client.download_fileobj(s3bucket, s3key, f)
         logger.debug(f"download completed successfully {s3uri} -> {dst_path}")
-
-    @classmethod
-    def resolve_data_s3uri(
-        s3bucket: str,
-        s3prefix: str,
-        domain: str,
-        dataset_id: str,
-        stage: str,
-        mime_type: str,
-        filename: str,
-    ) -> str:
-        return merge_s3uri(
-            s3bucket, s3prefix, domain, dataset_id, stage, mime_type, filename
-        )
