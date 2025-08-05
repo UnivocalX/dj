@@ -6,7 +6,7 @@ import yaml
 
 from dj.constants import DJCFG_FILENAME, PROGRAM_NAME
 from dj.schemes import ConfigureDJConfig, DJConfig
-from dj.utils import resolve_internal_dir
+from dj.utils import pretty_format, resolve_internal_dir
 
 logger: Logger = getLogger(__name__)
 
@@ -73,9 +73,4 @@ class DJManager:
         else:
             logger.debug("No configuration changes needed")
 
-        updated_cfg_content: str = yaml.dump(updated_cfg)
-        logger.info(
-            f"{PROGRAM_NAME.upper()} Configuration:\n"
-            "----------------------\n"
-            f"{updated_cfg_content}"
-        )
+        logger.info(pretty_format(updated_cfg, title=f"\n{PROGRAM_NAME.upper()} Configuration"))

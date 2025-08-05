@@ -3,37 +3,45 @@ import tempfile
 from contextlib import contextmanager
 from logging import Logger, getLogger
 
+from sqlalchemy.exc import IntegrityError
+
 from dj.inspect import FileInspector
+from dj.registry.journalist import Journalist
+from dj.registry.models import DatasetRecord, FileRecord
 from dj.schemes import FileMetadata, LoadDataConfig
 from dj.storage import Storage
-from dj.utils import collect_files, merge_s3uri, pretty_bar, pretty_format
+from dj.utils import (
+    collect_files,
+    merge_s3uri,
+    pretty_bar,
+)
 
 logger: Logger = getLogger(__name__)
-
-
-def resolve_data_s3uri(
-    s3bucket: str,
-    s3prefix: str,
-    domain: str,
-    dataset_id: str,
-    stage: str,
-    mime_type: str,
-    filename: str,
-) -> str:
-    return merge_s3uri(
-        s3bucket, s3prefix, domain, dataset_id, stage, mime_type, filename
-    )
 
 
 class DataLoader:
     def __init__(self, cfg: LoadDataConfig):
         self.cfg: LoadDataConfig = cfg
         self.storage: Storage = Storage(cfg)
+        self.journalist: Journalist = Journalist(cfg)
+
+    def __enter__(self):
+        logger.debug("Entering DataLoader context manager")
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        logger.debug("Exiting DataLoader context manager")
+        if exc_type:
+            logger.error(
+                f"Exception in context manager: {exc_type.__name__}: {exc_val}"
+            )
+        self.journalist.close()
+        return None
 
     def _gather_datafiles(self) -> set[str]:
         datafiles: set[str] = set()
 
-        logger.info(f"attempting to load data, filters: {self.cfg.filters}")
+        logger.info(f"attempting to gather data, filters: {self.cfg.filters}")
         if self.cfg.data_src.startswith("s3://"):
             logger.info("gathering data from S3")
 
@@ -51,11 +59,34 @@ class DataLoader:
         logger.info(f'Gathered {len(datafiles)} file\\s from "{self.cfg.data_src}"')
         return datafiles
 
-    def _process_datafile(self, datafile_src: str) -> tuple[str, FileMetadata]:
+    def _load_datafile(self, dataset: DatasetRecord, datafile_src: str) -> FileRecord:
         with self._get_local_file(datafile_src) as local_path:
-            metadata: FileMetadata = self._inspect_file(local_path)
-            dst_s3uri: str = self._upload2s3(local_path, metadata)
-            return dst_s3uri, metadata
+            # Inspect File Metadata
+            metadata: FileMetadata = FileInspector(local_path).metadata
+
+            # Create a data file record
+            try:
+                with self.journalist.transaction():
+                    datafile_record: FileRecord = self.journalist.add_file_record(
+                        dataset=dataset,
+                        s3bucket=self.cfg.s3bucket,
+                        s3prefix=self.cfg.s3prefix,
+                        filename=metadata.filename,
+                        sha256=metadata.sha256,
+                        mime_type=metadata.mime_type,
+                        size_bytes=metadata.size_bytes,
+                        stage=self.cfg.stage,
+                        tags=self.cfg.tags,
+                    )
+            except IntegrityError as e:
+                if "files.s3uri" in str(e.orig):
+                    raise FileExistsError(
+                        f"File {metadata.filename} already exists in {self.cfg.domain}\\{self.cfg.dataset_name}"
+                    ) from e
+                raise
+
+            # self.storage.upload(metadata.filepath, datafile_record.s3uri)
+            return datafile_record
 
     @contextmanager
     def _get_local_file(self, datafile_src: str):
@@ -72,43 +103,35 @@ class DataLoader:
         else:
             yield datafile_src
 
-    def _inspect_file(self, local_path: str) -> FileMetadata:
-        inspector: FileInspector = FileInspector(local_path)
-        return inspector.metadata
-
-    def _upload2s3(self, local_path: str, metadata: FileMetadata) -> str:
-        dst_s3uri: str = resolve_data_s3uri(
-            self.cfg.s3bucket,
-            self.cfg.s3prefix,
-            self.cfg.domain,
-            self.cfg.dataset_id,
-            self.cfg.stage,
-            metadata.mime_type,
-            metadata.filename,
-        )
-        # self.storage.upload(local_path, dst_s3uri)
-        return dst_s3uri
-
     def load(self) -> None:
+        # Gather all data files
         datafiles: set[str] = self._gather_datafiles()
         if not datafiles:
             raise ValueError(f"Failed to gather data files from {self.cfg.data_src}")
 
+        # Create\Get a dataset record
+        dataset_record: DatasetRecord = self.journalist.add_dataset(
+            self.cfg.domain,
+            self.cfg.dataset_name,
+            self.cfg.description,
+            self.cfg.exists_ok,
+        )
+
+        # Load files
         logger.info(f"Starting to process {len(datafiles)} file\\s")
-        processed_datafiles: dict[str, FileMetadata] = {}
+        processed_datafiles: dict[str, FileRecord] = {}
         for datafile in pretty_bar(
-            datafiles, disable=self.cfg.plain, desc="⚙️ Processing", unit="file"
+            datafiles, disable=self.cfg.plain, desc="☁️ Loading", unit="file"
         ):
             try:
-                dst_s3uri, metadata = self._process_datafile(datafile)
+                datafile_record: FileRecord = self._load_datafile(
+                    dataset_record, datafile
+                )
             except Exception as e:
-                logger.debug(e)
-                logger.error(f"Failed to load {datafile}.")
+                logger.error(e)
+                logger.error(f"Failed to load {datafile}.\n")
             else:
-                data: dict = metadata.model_dump(exclude={'filepath'})
-                data['S3URI'] = dst_s3uri
-                logger.info(pretty_format(data, title='Loaded File Metadata'))
-                processed_datafiles[dst_s3uri] = metadata
+                processed_datafiles[datafile] = datafile_record
 
         if not processed_datafiles:
             raise ValueError(f"Failed to load datafiles ({self.cfg.data_src}).")

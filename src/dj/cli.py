@@ -32,13 +32,17 @@ def parser(prog_name: str) -> dict:
 
     # Load
     load_parser: ArgumentParser = sub_parsers.add_parser(
-        "load", help="load data into dj datasets"
+        "load", help="load data into dj registry"
     )
     load_parser.add_argument("data_src", type=str)
-    load_parser.add_argument("dataset_id", type=str)
-    load_parser.add_argument("--stage", type=str)
+    load_parser.add_argument("dataset_name", type=str)
     load_parser.add_argument("--domain", type=str)
+    load_parser.add_argument("--stage", type=str)
     load_parser.add_argument("--filters", nargs="+")
-    load_parser.add_argument("--overwrite", action="store_const", const=True)
+    load_parser.add_argument("--exists-ok", action="store_const", const=True)
+    load_parser.add_argument("--description", type=str)
+    load_parser.add_argument("--tags", nargs="+")
 
     return {k: v for k, v in vars(main_parser.parse_args()).items() if v is not None}
+
+

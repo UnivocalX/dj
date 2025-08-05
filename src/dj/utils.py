@@ -5,6 +5,7 @@ from glob import glob
 from importlib.resources import files as resource_files
 from logging import Logger, getLogger
 from typing import Iterable, TypeVar
+from urllib.parse import quote
 
 from pydantic.alias_generators import to_pascal as snake2pascal
 from tqdm import tqdm
@@ -203,7 +204,6 @@ def pretty_bar(
     )
 
 
-
 def pretty_format(
     data: dict,
     sep: str = ": ",
@@ -224,3 +224,26 @@ def pretty_format(
         camel_key = snake2pascal(str(k))
         lines.append(f"{prefix}{camel_key}{sep}{v}")
     return "\n".join(lines) + "\n"
+
+
+def resolve_data_s3uri(
+    s3bucket: str,
+    s3prefix: str,
+    domain: str,
+    dataset_name: str,
+    stage: str,
+    mime_type: str,
+    sha256: str,
+    ext: str | None = None
+) -> str:
+    def clean(part: str) -> str:
+        return quote(str(part).strip('/ ')) if part else ''
+    
+    path: str = '/'.join(
+        clean(part) 
+        for part in [s3prefix, domain, dataset_name, stage, mime_type, sha256] 
+        if part
+    )
+    s3uri_no_ext: str = f"s3://{clean(s3bucket)}/{path}"
+    s3uri: str = s3uri_no_ext + ext if ext else s3uri_no_ext
+    return s3uri

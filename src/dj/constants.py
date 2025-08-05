@@ -14,3 +14,5 @@ ASSETS_DIRECTORY: str = "assets"
 
 TRUE_STRINGS: list[str] = ["yes", "true", "t", "y", "1"]
 FALSE_STRINGS: list[str] = ["no", "false", "f", "n", "0"]
+
+DEFAULT_DOMAIN: str = "global"

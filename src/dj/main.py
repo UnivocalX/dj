@@ -29,9 +29,9 @@ def main() -> None:
 
     match dj_cli_cfg.command:
         case "config":
-            dj_manager.configure(ConfigureDJConfig(**dj_manager))
+            dj_manager.configure(ConfigureDJConfig(**parsed_arguments))
         case "load":
-            data_loader: DataLoader = DataLoader(
+            with DataLoader(
                 LoadDataConfig(**dj_manager.cfg.model_dump(), **parsed_arguments)
-            )
-            data_loader.load()
+            ) as data_loader:
+                data_loader.load()

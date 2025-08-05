@@ -26,8 +26,12 @@ class Storage:
             "config": client_config,
         }
         if self.cfg.access_key_id and self.cfg.secret_access_key:
-            client_params["aws_access_key_id"] = self.cfg.access_key_id.get_secret_value()
-            client_params["aws_secret_access_key"] = self.cfg.secret_access_key.get_secret_value()
+            client_params["aws_access_key_id"] = (
+                self.cfg.access_key_id.get_secret_value()
+            )
+            client_params["aws_secret_access_key"] = (
+                self.cfg.secret_access_key.get_secret_value()
+            )
 
         if self.cfg.s3endpoint:
             client_params["endpoint_url"] = self.cfg.s3endpoint

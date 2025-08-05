@@ -129,6 +129,7 @@ def configure_logging(
 
     # Add color filtering if enabled
     if plain:
+
         class ConsoleFilter(logging.Filter):
             def filter(self, record):
                 record.console_output = True

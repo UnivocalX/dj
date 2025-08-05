@@ -37,6 +37,6 @@ class FileInspector:
         return FileMetadata(
             filepath=self.filepath.absolute(),
             size_bytes=self.filepath.stat().st_size,
-            sha256_hash=self.calculate_sha256_hash(),
+            sha256=self.calculate_sha256_hash(),
             mime_type=self.get_mime_type(),
         )
