@@ -107,7 +107,7 @@ class LoadDataConfig(DJConfig):
     exists_ok: bool = Field(default=False)
 
     @field_validator("domain")
-    def clean_strings(v: str) -> str:
+    def clean_strings(cls, v: str) -> str:
         return clean_string(v)
 
     @field_validator("data_src")
