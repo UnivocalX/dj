@@ -73,4 +73,6 @@ class DJManager:
         else:
             logger.debug("No configuration changes needed")
 
-        logger.info(pretty_format(updated_cfg, title=f"\n{PROGRAM_NAME.upper()} Configuration"))
+        logger.info(
+            pretty_format(updated_cfg, title=f"\n{PROGRAM_NAME.upper()} Configuration")
+        )

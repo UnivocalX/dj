@@ -234,14 +234,14 @@ def resolve_data_s3uri(
     stage: str,
     mime_type: str,
     sha256: str,
-    ext: str | None = None
+    ext: str | None = None,
 ) -> str:
     def clean(part: str) -> str:
-        return quote(str(part).strip('/ ')) if part else ''
-    
-    path: str = '/'.join(
-        clean(part) 
-        for part in [s3prefix, domain, dataset_name, stage, mime_type, sha256] 
+        return quote(str(part).strip("/ ")) if part else ""
+
+    path: str = "/".join(
+        clean(part)
+        for part in [s3prefix, domain, dataset_name, stage, mime_type, sha256]
         if part
     )
     s3uri_no_ext: str = f"s3://{clean(s3bucket)}/{path}"

@@ -144,7 +144,7 @@ class Journalist:
         # Check if dataset exists
         logger.debug(f"Checking if dataset '{name}' already exists")
         dataset: DatasetRecord | None = self.get_dataset(domain=domain, name=name)
-        
+
         if not dataset:
             dataset = self.create_dataset(
                 domain=domain,
@@ -218,7 +218,7 @@ class Journalist:
             logger.debug(f"Processing {len(tags)} tags")
             for tag_name in tags:
                 tags_records.append(self.add_tag(tag_name.strip(), commit=False))
-                
+
         logger.debug("Creating FileRecord object")
         datafile: FileRecord = FileRecord(
             dataset_id=dataset.id,
@@ -231,9 +231,9 @@ class Journalist:
             size_bytes=size_bytes,
         )
         datafile.dataset = dataset
-        
+
         if tags_records:
-            logger.debug('creating file&tags relationship')
+            logger.debug("creating file&tags relationship")
             datafile.tags = tags_records
 
         logger.debug(

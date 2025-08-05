@@ -44,5 +44,3 @@ def parser(prog_name: str) -> dict:
     load_parser.add_argument("--tags", nargs="+")
 
     return {k: v for k, v in vars(main_parser.parse_args()).items() if v is not None}
-
-

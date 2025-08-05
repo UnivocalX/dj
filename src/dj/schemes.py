@@ -124,7 +124,7 @@ class FileMetadata(BaseModel):
     mime_type: str
 
     @computed_field  # type: ignore[misc]
-    @cached_property  
+    @cached_property
     def size_human(self) -> str:
         return format_file_size(self.size_bytes)
 

@@ -26,8 +26,8 @@ class DataLoader:
         self.journalist: Journalist = Journalist(cfg)
 
         if not cfg.s3bucket:
-            raise ValueError('Please configure S3 bucket!')
-        
+            raise ValueError("Please configure S3 bucket!")
+
     def __enter__(self):
         logger.debug("Entering DataLoader context manager")
         return self
