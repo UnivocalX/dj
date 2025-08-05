@@ -14,7 +14,7 @@ dependencies = [
     "boto3 (>=1.39.16,<2.0.0)",
     "sqlalchemy (>=2.0.42,<3.0.0)",
     "python-magic (>=0.4.27,<0.5.0)",
-    "tqdm (>=4.67.1,<5.0.0)"
+    "tqdm (>=4.67.1,<5.0.0)",
 ]
 include = [
     { path = "assets/*", format = ["sdist", "wheel"] }

@@ -183,7 +183,7 @@ def pretty_bar(
 ) -> Iterable[T]:
     print()
     try:
-        total = len(iterable)
+        total = len(list(iterable))
     except TypeError:
         total = None
 

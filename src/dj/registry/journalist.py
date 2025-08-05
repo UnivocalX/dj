@@ -159,11 +159,11 @@ class Journalist:
     # File methods
     def get_file_record(
         self,
-        file_id: int = None,
-        sha256: str = None,
-        filename: str = None,
-        dataset_name: str = None,
-        domain: str = None,
+        file_id: int | None = None,
+        sha256: str | None = None,
+        filename: str | None = None,
+        dataset_name: str | None = None,
+        domain: str | None = None,
     ) -> FileRecord | None:
         logger.debug("Getting file record")
 
@@ -206,7 +206,7 @@ class Journalist:
         filename: str,
         sha256: str,
         mime_type: str,
-        size_bytes: str,
+        size_bytes: int,
         stage: DataStage = DataStage.RAW,
         tags: list[str] | None = None,
     ) -> FileRecord:
@@ -283,10 +283,10 @@ class Journalist:
 
     def add_tag(self, tag_name: str, commit: bool = True) -> TagRecord:
         logger.debug(f"Adding tag: {tag_name}")
-        tag: TagRecord = self.get_tag(tag_name)
+        tag: TagRecord | None = self.get_tag(tag_name)
 
         if not tag:
-            tag: TagRecord = self.create_tag(tag_name, commit)
+            tag = self.create_tag(tag_name, commit)
         else:
             logger.debug(f"Found existing tag: {tag.name}")
 
@@ -295,7 +295,7 @@ class Journalist:
     def add_tags2file(self, file_id: int, tag_names: list[str]) -> FileRecord:
         logger.info(f"Adding {len(tag_names)} tag\\s to file ID {file_id}")
 
-        file_record: FileRecord = self.get_file_record(file_id)
+        file_record: FileRecord | None = self.get_file_record(file_id)
         if not file_record:
             raise FileNotFoundError(f"File with ID {file_id} not found.")
 
@@ -314,7 +314,7 @@ class Journalist:
     def get_file_tags(self, file_id: int) -> list[TagRecord]:
         logger.debug(f"Getting tags for file ID: {file_id}")
 
-        file_record: FileRecord = self.get_file_record(file_id)
+        file_record: FileRecord | None = self.get_file_record(file_id)
         if not file_record:
             raise ValueError(f"File with ID {file_id} not found.")
 

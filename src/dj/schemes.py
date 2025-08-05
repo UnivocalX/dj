@@ -123,12 +123,12 @@ class FileMetadata(BaseModel):
     sha256: str = Field(..., description="Cryptographic hash")
     mime_type: str
 
-    @computed_field  # type: ignore[prop-decorator]
-    @cached_property
+    @computed_field  # type: ignore[misc]
+    @cached_property  
     def size_human(self) -> str:
         return format_file_size(self.size_bytes)
 
-    @computed_field  # type: ignore[prop-decorator]
+    @computed_field  # type: ignore[misc]
     @cached_property
     def filename(self) -> str:
         return os.path.basename(self.filepath)

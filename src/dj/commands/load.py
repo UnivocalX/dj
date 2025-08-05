@@ -25,6 +25,9 @@ class DataLoader:
         self.storage: Storage = Storage(cfg)
         self.journalist: Journalist = Journalist(cfg)
 
+        if not cfg.s3bucket:
+            raise ValueError('Please configure S3 bucket!')
+        
     def __enter__(self):
         logger.debug("Entering DataLoader context manager")
         return self
@@ -69,7 +72,7 @@ class DataLoader:
                 with self.journalist.transaction():
                     datafile_record: FileRecord = self.journalist.add_file_record(
                         dataset=dataset,
-                        s3bucket=self.cfg.s3bucket,
+                        s3bucket=self.cfg.s3bucket,  # type: ignore[arg-type]
                         s3prefix=self.cfg.s3prefix,
                         filename=metadata.filename,
                         sha256=metadata.sha256,

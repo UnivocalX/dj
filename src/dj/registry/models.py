@@ -19,7 +19,7 @@ from sqlalchemy.orm import declarative_base, relationship
 from dj.constants import DEFAULT_DOMAIN, DataStage
 from dj.utils import resolve_data_s3uri
 
-Base = declarative_base()
+Base = declarative_base()  
 
 # Association table for many-to-many relationship between files and tags
 file_tags: Table = Table(
@@ -30,7 +30,7 @@ file_tags: Table = Table(
 )
 
 
-class DatasetRecord(Base):
+class DatasetRecord(Base):  # type: ignore[valid-type, misc]
     __tablename__ = "datasets"
     id = Column(Integer, primary_key=True)
     name = Column(String, nullable=False)
@@ -45,7 +45,7 @@ class DatasetRecord(Base):
     __table_args__ = (UniqueConstraint("name", "domain", name="unique_dataset"),)
 
 
-class TagRecord(Base):
+class TagRecord(Base):  # type: ignore[valid-type, misc]
     __tablename__ = "tags"
 
     id = Column(Integer, primary_key=True)
@@ -57,7 +57,7 @@ class TagRecord(Base):
     files = relationship("FileRecord", secondary=file_tags, back_populates="tags")
 
 
-class FileRecord(Base):
+class FileRecord(Base):  # type: ignore[valid-type, misc]
     __tablename__ = "files"
 
     id = Column(Integer, primary_key=True)

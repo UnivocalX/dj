@@ -94,7 +94,7 @@ def configure_logging(
 
     if verbose:
         fmt: str = "%(asctime)s | %(name)s | %(levelname)s | %(message)s"
-        datefmt: str = "%H:%M:%S"
+        datefmt: str | None = "%H:%M:%S"
     else:
         fmt = "%(message)s"
         datefmt = None

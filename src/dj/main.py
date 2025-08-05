@@ -12,7 +12,7 @@ logger: Logger = getLogger(PROGRAM_NAME)
 
 
 def main() -> None:
-    parsed_arguments: dict[str] = parser(PROGRAM_NAME)
+    parsed_arguments: dict = parser(PROGRAM_NAME)
     dj_cli_cfg: DJConfigCLI = DJConfigCLI(**parsed_arguments)
     configure_logging(
         PROGRAM_NAME,
