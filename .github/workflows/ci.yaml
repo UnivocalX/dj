@@ -51,7 +51,7 @@ jobs:
           pip install poetry==2.1.3
           poetry config virtualenvs.create false
           poetry install
-           
+
       - name: Lint
         run: |
           poetry run ruff --version
@@ -81,12 +81,15 @@ jobs:
 
       - name: Version Increment
         run: |
+          COMMIT_MSG="${{ github.event.head_commit.message }}"
+          LOWER_COMMIT_MSG=$(echo "$COMMIT_MSG" | tr '[:upper:]' '[:lower:]')
+
           if [[ "${{ github.ref_name }}" == "main" ]]; then
-            if [[ "${{ github.event.head_commit.message }}" == *"feat"* ]]; then
+            if [[ "$LOWER_COMMIT_MSG" == *"feat"* ]]; then
               poetry version minor
-            elif [[ "${{ github.event.head_commit.message }}" == *"patch"* ]]; then
+            elif [[ "$LOWER_COMMIT_MSG" == *"patch"* ]]; then
               poetry version patch
-            elif [[ "${{ github.event.head_commit.message }}" == *"major"* ]] ; then
+            elif [[ "$LOWER_COMMIT_MSG" == *"major"* ]]; then
               poetry version major
             fi
           else
