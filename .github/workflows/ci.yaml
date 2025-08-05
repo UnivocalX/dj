@@ -54,10 +54,12 @@ jobs:
            
       - name: Lint
         run: |
+          ruff --version
           ruff check --fix
 
       - name: Type Checks
         run: |
+          mypy --version
           mypy src/ --config-file pyproject.toml --ignore-missing-imports --python-version ${{ env.PYTHON_VERSION }}
 
       - name: Tests
