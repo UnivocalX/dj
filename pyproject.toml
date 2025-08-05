@@ -2,9 +2,7 @@
 name = "dj"
 version = "0.1.0"
 description = ""
-authors = [
-    {name = "elad jerbi",email = "eladxjerbi@gmail.com"}
-]
+authors = ["elad jerbi <eladxjerbi@gmail.com>"]
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
