@@ -12,6 +12,8 @@ logger: Logger = getLogger(__name__)
 class DataFetcher(DataAction):
     def _download_records(self, file_records: list[FileRecord], directory: str) -> None:
         logger.info("Downloading files")
+
+        success: bool = False
         for file_record in pretty_bar(
             file_records, disable=self.cfg.plain, desc="⬇️   Downloading", unit="file"
         ):
@@ -19,10 +21,19 @@ class DataFetcher(DataAction):
                 directory, os.path.basename(file_record.s3uri)
             )
             logger.info(f"{file_record.s3uri} -> {local_filepath}")
-            self.storage.download_obj(
-                file_record.s3uri,
-                local_filepath,
-            )
+            try:
+                self.storage.download_obj(
+                    file_record.s3uri,
+                    local_filepath,
+                )
+            except Exception as e:
+                logger.error(e)
+                logger.error(f"Failed to load {file_record.s3uri}.\n")
+            else:
+                success = True
+
+        if not success:
+            raise ValueError("Failed to download files (0 files were downloaded)")
 
     def _export_records(self, file_records: list[FileRecord], filepath: str) -> None:
         logger.info(f"exporting file records -> {filepath}")
@@ -30,7 +41,7 @@ class DataFetcher(DataAction):
         records_dict: dict = {}
         for record in file_records:
             record_dict: dict = self.journalist.file_record2dict(record)
-            records_dict[record_dict['sha256']] = record_dict
+            records_dict[record_dict["sha256"]] = record_dict
 
         export_data(filepath, records_dict)
 
@@ -76,9 +87,10 @@ class DataFetcher(DataAction):
         file_records: list[FileRecord] = query.limit(fetch_cfg.limit).all()
         logger.info(f"Found {len(file_records)} files matching filters")
 
-        if fetch_cfg.export_format:
-            os.makedirs(fetch_cfg.directory, exist_ok=True)
-            self._export_records(file_records, fetch_cfg.fetch_export_filepath)
-        if not fetch_cfg.dry:
-            os.makedirs(fetch_cfg, exist_ok=True)
-            self._download_records(file_records, fetch_cfg.directory)
+        if file_records:
+            if fetch_cfg.export_format:
+                os.makedirs(fetch_cfg.directory, exist_ok=True)
+                self._export_records(file_records, fetch_cfg.fetch_export_filepath)
+            if not fetch_cfg.dry:
+                os.makedirs(fetch_cfg, exist_ok=True)
+                self._download_records(file_records, fetch_cfg.directory)
