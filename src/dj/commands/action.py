@@ -31,7 +31,7 @@ class DataAction:
             )
         self.journalist.close()
         return None
-    
+
     @contextmanager
     def _get_local_file(self, datafile_src: str):
         if datafile_src.startswith("s3://"):

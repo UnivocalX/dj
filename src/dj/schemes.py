@@ -125,10 +125,10 @@ class FetchDataConfig(BaseModel):
     stage: DataStage = Field(default=DataStage.RAW)
     mime: str | None = Field(default=None)
     tags: list[str] | None = Field(default=None)
-    export_format: str | None = Field(default='json')
+    export_format: str | None = Field(default="json")
     export: bool = Field(default=False)
     dry: bool = Field(default=False)
-    
+
     @field_validator("export_format")
     def is_supported_format(cls, value: str) -> str:
         cleaned_format: str = clean_string(value)
@@ -139,9 +139,9 @@ class FetchDataConfig(BaseModel):
     @computed_field  # type: ignore[misc]
     @property
     def fetch_export_filepath(self) -> str:
-        return os.path.join(self.directory, f'{FETCH_FILENAME}.{self.export_format}')
-    
-    
+        return os.path.join(self.directory, f"{FETCH_FILENAME}.{self.export_format}")
+
+
 class FileMetadata(BaseModel):
     filepath: Path
     size_bytes: int = Field(..., description="size in bytes")

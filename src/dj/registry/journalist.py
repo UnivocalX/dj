@@ -1,6 +1,5 @@
 import os
 from contextlib import contextmanager
-from datetime import datetime
 from logging import Logger, getLogger
 from typing import TypeVar
 
@@ -324,16 +323,15 @@ class Journalist:
         )
         return file_record.tags
 
-
     def file_record2dict(
         self,
         file_record: FileRecord,
         exclude_fields: list[str] | None = None,
-        datetime_format: str = "%Y-%m-%dT%H:%M:%SZ"
+        datetime_format: str = "%Y-%m-%dT%H:%M:%SZ",
     ) -> dict:
         if exclude_fields is None:
             exclude_fields = []
-        
+
         # Base fields conversion
         data: dict = {
             "id": file_record.id,
@@ -358,9 +356,8 @@ class Journalist:
                 {"id": tag.id, "name": tag.name}  # Basic tag representation
                 for tag in file_record.tags
             ]
-        
-        
+
         for field in exclude_fields:
             data.pop(field, None)
-        
+
         return data

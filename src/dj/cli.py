@@ -44,20 +44,20 @@ def parser(prog_name: str) -> dict:
     load_parser.add_argument("--exists-ok", action="store_const", const=True)
     load_parser.add_argument("--description", type=str)
     load_parser.add_argument("--tags", nargs="+")
-    
+
     # Fetch
     fetch_parser: ArgumentParser = sub_parsers.add_parser(
         "fetch", help="fetch data from dj registry."
     )
-    fetch_parser.add_argument('directory', type=str)
-    fetch_parser.add_argument('limit', type=int)
-    fetch_parser.add_argument('--domain', type=str)
-    fetch_parser.add_argument('--dataset-name', type=str)
-    fetch_parser.add_argument('--stage', choices=[stage.value for stage in DataStage])
-    fetch_parser.add_argument('--mime', type=str)
-    fetch_parser.add_argument('--tags', nargs="+")
-    fetch_parser.add_argument('--export-format', choices=EXPORT_FORMATS)
+    fetch_parser.add_argument("directory", type=str)
+    fetch_parser.add_argument("limit", type=int)
+    fetch_parser.add_argument("--domain", type=str)
+    fetch_parser.add_argument("--dataset-name", type=str)
+    fetch_parser.add_argument("--stage", choices=[stage.value for stage in DataStage])
+    fetch_parser.add_argument("--mime", type=str)
+    fetch_parser.add_argument("--tags", nargs="+")
+    fetch_parser.add_argument("--export-format", choices=EXPORT_FORMATS)
     fetch_parser.add_argument("--dry", action="store_const", const=True)
     fetch_parser.add_argument("--export", action="store_const", const=True)
-    
+
     return {k: v for k, v in vars(main_parser.parse_args()).items() if v is not None}

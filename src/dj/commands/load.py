@@ -34,7 +34,7 @@ class DataLoader(DataAction):
             logger.info("gathering data from local storage")
             datafiles = collect_files(data_src, filters)
 
-        logger.info(f'Gathered {len(datafiles)} file\\s')
+        logger.info(f"Gathered {len(datafiles)} file\\s")
         return datafiles
 
     def _load_datafile(
@@ -70,8 +70,10 @@ class DataLoader(DataAction):
 
     def load(self, load_cfg: LoadDataConfig) -> None:
         logger.info(f'Starting to load data from "{load_cfg.data_src}"')
-        
-        datafiles: set[str] = self._gather_datafiles(load_cfg.data_src, load_cfg.filters)
+
+        datafiles: set[str] = self._gather_datafiles(
+            load_cfg.data_src, load_cfg.filters
+        )
         if not datafiles:
             raise ValueError(f"Failed to gather data files from {load_cfg.data_src}")
 

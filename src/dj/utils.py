@@ -253,12 +253,14 @@ def resolve_data_s3uri(
 
 def export_data(filepath: str, data: dict[str, Any]) -> None:
     format: str = os.path.splitext(filepath)[1].lower()
-    
-    logger.debug(f'exporting data -> {filepath}')
-    with open(filepath, 'w') as export_file:
-        if format == '.json':
+
+    logger.debug(f"exporting data -> {filepath}")
+    with open(filepath, "w") as export_file:
+        if format == ".json":
             json.dump(data, export_file, indent=4)
-        elif format == '.yaml' or format == '.yml':
+        elif format == ".yaml" or format == ".yml":
             yaml.dump(data, export_file, default_flow_style=False, indent=4)
         else:
-            raise ValueError(f"Unsupported file format: {format}. Supported formats: .json, .yaml, .yml, .csv")
+            raise ValueError(
+                f"Unsupported file format: {format}. Supported formats: .json, .yaml, .yml, .csv"
+            )
