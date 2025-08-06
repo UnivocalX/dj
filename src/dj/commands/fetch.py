@@ -23,7 +23,7 @@ class DataFetcher(DataAction):
             logger.info(f"{file_record.s3uri} -> {local_filepath}")
             try:
                 self.storage.download_obj(
-                    file_record.s3uri,
+                    file_record.s3uri,  # type: ignore[arg-type]
                     local_filepath,
                 )
             except Exception as e:
@@ -51,7 +51,7 @@ class DataFetcher(DataAction):
             pretty_format(
                 title="🔍 Filters",
                 data=fetch_cfg.model_dump(
-                    exclude=["export_format", "export", "dry", "fetch_export_filepath"]
+                    exclude=["export_format", "export", "dry", "fetch_export_filepath"]  # type: ignore[arg-type]
                 ),
             )
         )
@@ -92,5 +92,5 @@ class DataFetcher(DataAction):
                 os.makedirs(fetch_cfg.directory, exist_ok=True)
                 self._export_records(file_records, fetch_cfg.fetch_export_filepath)
             if not fetch_cfg.dry:
-                os.makedirs(fetch_cfg, exist_ok=True)
+                os.makedirs(fetch_cfg.directory, exist_ok=True)
                 self._download_records(file_records, fetch_cfg.directory)

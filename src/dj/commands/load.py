@@ -16,7 +16,7 @@ logger: Logger = getLogger(__name__)
 
 
 class DataLoader(DataAction):
-    def _gather_datafiles(self, data_src: str, filters: list[str]) -> set[str]:
+    def _gather_datafiles(self, data_src: str, filters: list[str] | None) -> set[str]:
         datafiles: set[str] = set()
 
         logger.info(f"attempting to gather data, filters: {filters}")

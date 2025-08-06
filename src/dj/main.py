@@ -45,7 +45,7 @@ def main() -> None:
                 data_loader.load(load_cfg)
 
         case "fetch":
-            dj_cfg: DJConfig = DJConfig(**dj_manager.cfg.model_dump(), **parsed_args)
+            dj_cfg = DJConfig(**dj_manager.cfg.model_dump(), **parsed_args)
             fetch_cfg: FetchDataConfig = FetchDataConfig(**parsed_args)
 
             with DataFetcher(dj_cfg) as data_fetcher:
