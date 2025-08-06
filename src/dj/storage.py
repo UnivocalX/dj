@@ -110,7 +110,7 @@ class Storage:
     def upload(self, filepath: str, dst_s3uri: str) -> None:
         dst_s3bucket, dst_s3key = split_s3uri(dst_s3uri)
         self.client.upload_file(filepath, dst_s3bucket, dst_s3key)
-        logger.debug(f"upload completed successfully {filepath} -> {dst_s3uri}")
+        logger.debug(f"uploaded {filepath} -> {dst_s3uri}")
 
     def delete_obj(self, s3uri: str) -> None:
         s3bucket, s3key = split_s3uri(s3uri)
@@ -118,10 +118,10 @@ class Storage:
             Bucket=s3bucket,
             Key=s3key,
         )
-        logger.debug(f"delete completed successfully {s3uri}")
+        logger.debug(f"deleted {s3uri}")
 
     def download_obj(self, s3uri: str, dst_path: str) -> None:
         s3bucket, s3key = split_s3uri(s3uri)
         with open(dst_path, "wb") as f:
             self.client.download_fileobj(s3bucket, s3key, f)
-        logger.debug(f"download completed successfully {s3uri} -> {dst_path}")
+        logger.debug(f"downloaded {s3uri} -> {dst_path}")

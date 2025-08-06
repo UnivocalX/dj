@@ -1,5 +1,6 @@
 import os
 from contextlib import contextmanager
+from datetime import datetime
 from logging import Logger, getLogger
 from typing import TypeVar
 
@@ -41,7 +42,7 @@ class Journalist:
                     f"SQLite database file not found at expected location: {os.path.abspath(db_path)}"
                 )
 
-        logger.info("Journalist initialization completed")
+        logger.debug("Journalist initialization completed")
 
     def __enter__(self):
         logger.debug("Entering Journalist context manager")
@@ -322,3 +323,44 @@ class Journalist:
             f"Found {len(file_record.tags)} tags for file {file_record.filename}"
         )
         return file_record.tags
+
+
+    def file_record2dict(
+        self,
+        file_record: FileRecord,
+        exclude_fields: list[str] | None = None,
+        datetime_format: str = "%Y-%m-%dT%H:%M:%SZ"
+    ) -> dict:
+        if exclude_fields is None:
+            exclude_fields = []
+        
+        # Base fields conversion
+        data: dict = {
+            "id": file_record.id,
+            "s3bucket": file_record.s3bucket,
+            "s3prefix": file_record.s3prefix,
+            "stage": file_record.stage.value,
+            "filename": file_record.filename,
+            "sha256": file_record.sha256,
+            "mime_type": file_record.mime_type,
+            "size_bytes": file_record.size_bytes,
+            "created_at": file_record.created_at.strftime(datetime_format),
+            "s3uri": file_record.s3uri,
+        }
+        if "dataset" not in exclude_fields and file_record.dataset:
+            data["dataset"] = {
+                "id": file_record.dataset.id,
+                "name": file_record.dataset.name,
+                # Add other dataset fields as needed
+            }
+        if "tags" not in exclude_fields and file_record.tags:
+            data["tags"] = [
+                {"id": tag.id, "name": tag.name}  # Basic tag representation
+                for tag in file_record.tags
+            ]
+        
+        
+        for field in exclude_fields:
+            data.pop(field, None)
+        
+        return data
