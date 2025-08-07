@@ -240,9 +240,7 @@ def resolve_data_s3uri(
         return quote(str(part).strip("/ ")) if part else ""
 
     path: str = "/".join(
-        clean(part)
-        for part in [s3prefix, stage, mime_type, sha256]
-        if part
+        clean(part) for part in [s3prefix, stage, mime_type, sha256] if part
     )
     s3uri_no_ext: str = f"s3://{clean(s3bucket)}/{path}"
     s3uri: str = s3uri_no_ext + ext if ext else s3uri_no_ext

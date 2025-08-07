@@ -137,7 +137,7 @@ class FetchDataConfig(BaseModel):
             tags = [tag.lower() for tag in tags]
 
         return tags
-        
+
     @field_validator("export_format")
     def is_supported_format(cls, format: str) -> str:
         cleaned_format: str = clean_string(format)
