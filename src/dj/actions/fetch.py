@@ -1,7 +1,7 @@
 import os
 from logging import Logger, getLogger
 
-from dj.commands.action import DataAction
+from dj.actions.base import BaseAction
 from dj.registry.models import DatasetRecord, FileRecord, TagRecord
 from dj.schemes import FetchDataConfig
 from dj.utils import export_data, pretty_bar, pretty_format
@@ -9,7 +9,7 @@ from dj.utils import export_data, pretty_bar, pretty_format
 logger: Logger = getLogger(__name__)
 
 
-class DataFetcher(DataAction):
+class DataFetcher(BaseAction):
     def _unique_records(self, file_records: list[FileRecord]) -> list[FileRecord]:
         unique_records: list[FileRecord] = []
         seen_sha256: set[str] = set()
@@ -62,7 +62,9 @@ class DataFetcher(DataAction):
 
         export_data(filepath, records_dict)
 
-    def fetch(self, fetch_cfg: FetchDataConfig, delay: int | None = None) -> None:
+    def fetch(
+        self, fetch_cfg: FetchDataConfig, delay: int | None = None
+    ) -> list[FileRecord]:
         logger.info("Starting to Fetch data.")
         logger.info(
             pretty_format(
@@ -119,3 +121,5 @@ class DataFetcher(DataAction):
             if not fetch_cfg.dry:
                 os.makedirs(fetch_cfg.directory, exist_ok=True)
                 self._download_records(file_records, fetch_cfg.directory)
+
+        return file_records

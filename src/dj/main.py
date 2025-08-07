@@ -1,10 +1,10 @@
 #!python3.12
 from logging import Logger, getLogger
 
+from dj.actions.config import DJManager
+from dj.actions.fetch import DataFetcher
+from dj.actions.load import DataLoader
 from dj.cli import parser
-from dj.commands.config import DJManager
-from dj.commands.fetch import DataFetcher
-from dj.commands.load import DataLoader
 from dj.constants import PROGRAM_NAME
 from dj.logging import configure_logging
 from dj.schemes import (

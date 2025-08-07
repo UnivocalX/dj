@@ -2,7 +2,7 @@ from logging import Logger, getLogger
 
 from sqlalchemy.exc import IntegrityError
 
-from dj.commands.action import DataAction
+from dj.actions.base import BaseAction
 from dj.inspect import FileInspector
 from dj.registry.models import DatasetRecord, FileRecord
 from dj.schemes import FileMetadata, LoadDataConfig
@@ -15,7 +15,7 @@ from dj.utils import (
 logger: Logger = getLogger(__name__)
 
 
-class DataLoader(DataAction):
+class DataLoader(BaseAction):
     def _gather_datafiles(self, data_src: str, filters: list[str] | None) -> set[str]:
         datafiles: set[str] = set()
 
@@ -65,10 +65,10 @@ class DataLoader(DataAction):
                     ) from e
                 raise
 
-            # self.storage.upload(metadata.filepath, datafile_record.s3uri)
+            self.storage.upload(metadata.filepath, datafile_record.s3uri)
             return datafile_record
 
-    def load(self, load_cfg: LoadDataConfig) -> None:
+    def load(self, load_cfg: LoadDataConfig) -> dict[str, FileRecord]:
         logger.info(f'Starting to load data from "{load_cfg.data_src}"')
 
         datafiles: set[str] = self._gather_datafiles(
@@ -103,3 +103,5 @@ class DataLoader(DataAction):
 
         if not processed_datafiles:
             raise ValueError(f"Failed to load datafiles ({load_cfg.data_src}).")
+
+        return processed_datafiles

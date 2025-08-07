@@ -10,7 +10,7 @@ from dj.storage import Storage
 logger: Logger = getLogger(__name__)
 
 
-class DataAction:
+class BaseAction:
     def __init__(self, cfg: DJConfig):
         self.cfg: DJConfig = cfg
         self.storage: Storage = Storage(cfg)
