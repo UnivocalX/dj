@@ -65,7 +65,7 @@ class DataLoader(BaseAction):
                     ) from e
                 raise
 
-            self.storage.upload(metadata.filepath, datafile_record.s3uri)
+            self.storage.upload(metadata.filepath, datafile_record.s3uri)  # type: ignore[arg-type]
             return datafile_record
 
     def load(self, load_cfg: LoadDataConfig) -> dict[str, FileRecord]:
