@@ -1,12 +1,14 @@
+import json
 import os
 import posixpath
 import re
 from glob import glob
 from importlib.resources import files as resource_files
 from logging import Logger, getLogger
-from typing import Iterable, TypeVar
+from typing import Any, Iterable, TypeVar
 from urllib.parse import quote
 
+import yaml
 from pydantic.alias_generators import to_pascal as snake2pascal
 from tqdm import tqdm
 
@@ -229,8 +231,6 @@ def pretty_format(
 def resolve_data_s3uri(
     s3bucket: str,
     s3prefix: str,
-    domain: str,
-    dataset_name: str,
     stage: str,
     mime_type: str,
     sha256: str,
@@ -241,9 +241,24 @@ def resolve_data_s3uri(
 
     path: str = "/".join(
         clean(part)
-        for part in [s3prefix, domain, dataset_name, stage, mime_type, sha256]
+        for part in [s3prefix, stage, mime_type, sha256]
         if part
     )
     s3uri_no_ext: str = f"s3://{clean(s3bucket)}/{path}"
     s3uri: str = s3uri_no_ext + ext if ext else s3uri_no_ext
     return s3uri
+
+
+def export_data(filepath: str, data: dict[str, Any]) -> None:
+    format: str = os.path.splitext(filepath)[1].lower()
+
+    logger.debug(f"exporting data -> {filepath}")
+    with open(filepath, "w") as export_file:
+        if format == ".json":
+            json.dump(data, export_file, indent=4)
+        elif format == ".yaml" or format == ".yml":
+            yaml.dump(data, export_file, default_flow_style=False, indent=4)
+        else:
+            raise ValueError(
+                f"Unsupported file format: {format}. Supported formats: .json, .yaml, .yml, .csv"
+            )

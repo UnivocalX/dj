@@ -96,24 +96,10 @@ class FileRecord(Base):
 def _validate_and_compute_s3uri(mapper, connection, target: FileRecord):
     """Ensure required fields are present and compute s3uri before saving."""
 
-    # Validate required fields
-    required: dict = {
-        "s3bucket": target.s3bucket,
-        "dataset": target.dataset,
-        "dataset.domain": getattr(target.dataset, "domain", None),
-        "dataset.name": getattr(target.dataset, "name", None),
-    }
-
-    for field, value in required.items():
-        if not value:
-            raise ValueError(f"Missing required field for S3 URI: {field}")
-
     # Compute and set the s3uri
     target.s3uri = resolve_data_s3uri(
         s3bucket=target.s3bucket,
         s3prefix=target.s3prefix,
-        domain=target.dataset.domain,
-        dataset_name=target.dataset.name,
         stage=target.stage.value,
         mime_type=target.mime_type,
         sha256=target.sha256,
