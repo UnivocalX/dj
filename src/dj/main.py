@@ -2,18 +2,22 @@
 from logging import Logger, getLogger
 
 from dj.actions.config import DJManager
-from dj.actions.fetch import DataFetcher
-from dj.actions.load import DataLoader
+from dj.actions.registry.fetch import DataFetcher
+from dj.actions.registry.journalist import Journalist
+from dj.actions.registry.load import DataLoader
 from dj.cli import parser
 from dj.constants import PROGRAM_NAME
 from dj.logging import configure_logging
 from dj.schemes import (
     ConfigureDJConfig,
+    Dataset,
     DJConfig,
     DJConfigCLI,
     FetchDataConfig,
+    ListDatasetsConfig,
     LoadDataConfig,
 )
+from dj.utils import pretty_format
 
 logger: Logger = getLogger(PROGRAM_NAME)
 
@@ -34,19 +38,29 @@ def main() -> None:
     logger.debug(f"DJ CLI Config: {dj_cli_cfg.model_dump()}")
     logger.debug(f"DJ Config: {dj_manager.cfg.model_dump()}")
 
+    dj_cfg: DJConfig = dj_manager.cfg.model_copy(update=parsed_args)
     match dj_cli_cfg.command:
         case "config":
             dj_manager.configure(ConfigureDJConfig(**parsed_args))
+            
         case "load":
-            dj_cfg: DJConfig = DJConfig(**dj_manager.cfg.model_dump(), **parsed_args)
-            load_cfg: LoadDataConfig = LoadDataConfig(**parsed_args)
-
             with DataLoader(dj_cfg) as data_loader:
-                data_loader.load(load_cfg)
+                data_loader.load(LoadDataConfig(**parsed_args))
 
         case "fetch":
-            dj_cfg = DJConfig(**dj_manager.cfg.model_dump(), **parsed_args)
-            fetch_cfg: FetchDataConfig = FetchDataConfig(**parsed_args)
-
             with DataFetcher(dj_cfg) as data_fetcher:
-                data_fetcher.fetch(fetch_cfg)
+                data_fetcher.fetch(FetchDataConfig(**parsed_args))
+
+        case "list":
+            list_cfg = ListDatasetsConfig(**parsed_args)
+
+            with Journalist(dj_cfg) as journalist:
+                datasets: list[Dataset] = journalist.list_datasets(
+                    domain=list_cfg.domain,
+                    name_pattern=list_cfg.name_pattern,
+                    limit=list_cfg.limit,
+                    offset=list_cfg.offset,
+                )
+
+            for dataset in datasets:
+                logger.info(pretty_format(dataset.model_dump(), title=dataset.name))

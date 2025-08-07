@@ -20,7 +20,9 @@ def parser(prog_name: str) -> dict:
     main_parser.add_argument(
         "--registry-endpoint", type=str, help="Registry (db) endpoint URL"
     )
-    main_parser.add_argument("--echo", action="store_true", help="Echo SQL commands")
+    main_parser.add_argument(
+        "--echo", action="store_const", const=True, help="Echo SQL commands"
+    )
     main_parser.add_argument(
         "--pool-size", type=int, help="Database connection pool size"
     )
@@ -131,6 +133,21 @@ def parser(prog_name: str) -> dict:
         action="store_const",
         const=True,
         help="Export fetched data to a file",
+    )
+
+    # List
+    list_parser: ArgumentParser = sub_parsers.add_parser(
+        "list", help="list datasets in the registry."
+    )
+    list_parser.add_argument("--domain", type=str, help="Domain to filter datasets by")
+    list_parser.add_argument(
+        "--name-pattern", type=str, help="Pattern to filter dataset names"
+    )
+    list_parser.add_argument(
+        "--limit", type=int, help="Limit the number of datasets to list"
+    )
+    list_parser.add_argument(
+        "--offset", type=int, help="Offset for pagination of datasets"
     )
 
     return {k: v for k, v in vars(main_parser.parse_args()).items() if v is not None}

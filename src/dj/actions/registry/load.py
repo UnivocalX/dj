@@ -2,9 +2,9 @@ from logging import Logger, getLogger
 
 from sqlalchemy.exc import IntegrityError
 
-from dj.actions.base import BaseAction
-from dj.inspect import FileInspector
-from dj.registry.models import DatasetRecord, FileRecord
+from dj.actions.inspect import FileInspector
+from dj.actions.registry.base import BaseAction
+from dj.actions.registry.models import DatasetRecord, FileRecord
 from dj.schemes import FileMetadata, LoadDataConfig
 from dj.utils import (
     collect_files,

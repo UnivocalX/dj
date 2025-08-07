@@ -1,8 +1,8 @@
 import os
 from logging import Logger, getLogger
 
-from dj.actions.base import BaseAction
-from dj.registry.models import DatasetRecord, FileRecord, TagRecord
+from dj.actions.registry.base import BaseAction
+from dj.actions.registry.models import DatasetRecord, FileRecord, TagRecord
 from dj.schemes import FetchDataConfig
 from dj.utils import export_data, pretty_bar, pretty_format
 
@@ -97,7 +97,7 @@ class DataFetcher(BaseAction):
 
         if fetch_cfg.sha256:
             logger.info(f"filtering by sha256: {', '.join(fetch_cfg.sha256)}")
-            query = query.filter(FileRecord.sha256.in_(fetch_cfg.tags))  # type: ignore[arg-type]
+            query = query.filter(FileRecord.sha256.in_(fetch_cfg.sha256))  # type: ignore[arg-type]
 
         if fetch_cfg.filenames:
             logger.info(f"filtering by file names: {', '.join(fetch_cfg.filenames)}")
@@ -115,7 +115,7 @@ class DataFetcher(BaseAction):
 
         # Output results
         if file_records:
-            if fetch_cfg.export_format:
+            if fetch_cfg.export:
                 os.makedirs(fetch_cfg.directory, exist_ok=True)
                 self._export_records(file_records, fetch_cfg.fetch_export_filepath)
             if not fetch_cfg.dry:

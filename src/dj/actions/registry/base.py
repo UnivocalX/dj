@@ -3,9 +3,9 @@ import tempfile
 from contextlib import contextmanager
 from logging import Logger, getLogger
 
-from dj.registry.journalist import Journalist
+from dj.actions.registry.journalist import Journalist
+from dj.actions.storage import Storage
 from dj.schemes import DJConfig
-from dj.storage import Storage
 
 logger: Logger = getLogger(__name__)
 
