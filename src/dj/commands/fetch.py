@@ -15,7 +15,7 @@ class DataFetcher(DataAction):
         seen_sha256: set[str] = set()
         for record in file_records:
             if record.sha256 not in seen_sha256:
-                seen_sha256.add(record.sha256)
+                seen_sha256.add(record.sha256)  # type: ignore[arg-type]
                 unique_records.append(record)
 
         if len(unique_records) < len(file_records):

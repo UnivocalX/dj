@@ -89,7 +89,7 @@ jobs:
             poetry version prerelease
           fi
 
-      - name: Commit Formatting and Version Changes
+      - name: Commit Changes
         run: |
           git config --global user.name "GitHub Actions"
           git config --global user.email "actions@github.com"
@@ -97,12 +97,12 @@ jobs:
           git add pyproject.toml
           git diff --cached --quiet || git commit -m "Apply formatting and bump version [skip ci]"
 
-      - name: Push or PR Changes
+      - name: Push Changes
         if: github.ref_name != 'main'
         run: |
           git push
 
-      - name: Create Pull Request for Main
+      - name: Pull Request
         if: github.ref_name == 'main'
         id: create-pr
         uses: peter-evans/create-pull-request@v6
@@ -114,7 +114,7 @@ jobs:
           base: main
           delete-branch: true
 
-      - name: Enable Auto-Merge
+      - name: Merge
         if: github.ref_name == 'main'
         uses: peter-evans/enable-pull-request-automerge@v3
         with:
