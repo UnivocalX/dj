@@ -66,6 +66,31 @@ class DJManager:
             updated_cfg["s3endpoint"] = updates["set_s3endpoint"]
             needs_update = True
 
+        if (
+            "set_registry_endpoint" in updates
+            and updates["set_registry_endpoint"] != self.cfg.registry_endpoint
+        ):
+            updated_cfg["registry_endpoint"] = updates["set_registry_endpoint"]
+            needs_update = True
+
+        if "set_echo" in updates and updates["set_echo"] != self.cfg.echo:
+            updated_cfg["echo"] = updates["set_echo"]
+            needs_update = True
+
+        if (
+            "set_pool_size" in updates
+            and updates["set_pool_size"] != self.cfg.pool_size
+        ):
+            updated_cfg["pool_size"] = updates["set_pool_size"]
+            needs_update = True
+
+        if (
+            "set_max_overflow" in updates
+            and updates["set_max_overflow"] != self.cfg.max_overflow
+        ):
+            updated_cfg["max_overflow"] = updates["set_max_overflow"]
+            needs_update = True
+
         if needs_update:
             with open(self.cfg_filepath, "w") as file:
                 yaml.dump(updated_cfg, file)
