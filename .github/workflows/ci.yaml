@@ -72,13 +72,6 @@ jobs:
         run: |
           ruff format
 
-      - name: Push Formatting
-        run: |
-          git config --global user.name "GitHub Actions"
-          git config --global user.email "actions@github.com"
-          git add -u
-          git diff --cached --quiet || (git commit -m "Apply automatic formatting [skip ci]" && git push)
-
       - name: Version Increment
         run: |
           COMMIT_MSG="${{ github.event.head_commit.message }}"
@@ -96,7 +89,35 @@ jobs:
             poetry version prerelease
           fi
 
+      - name: Commit Formatting and Version Changes
+        run: |
           git config --global user.name "GitHub Actions"
           git config --global user.email "actions@github.com"
+          git add -u
           git add pyproject.toml
-          git diff --cached --quiet || (git commit -m "Bump version to $(poetry version -s) [skip ci]" && git push)
+          git diff --cached --quiet || git commit -m "Apply formatting and bump version [skip ci]"
+
+      - name: Push or PR Changes
+        if: github.ref_name != 'main'
+        run: |
+          git push
+
+      - name: Create Pull Request for Main
+        if: github.ref_name == 'main'
+        id: create-pr
+        uses: peter-evans/create-pull-request@v6
+        with:
+          commit-message: "Apply formatting and bump version [skip ci]"
+          branch: "ci/format-and-bump"
+          title: "CI: Format and bump version"
+          body: "Automated formatting and version bump by CI"
+          base: main
+          delete-branch: true
+
+      - name: Enable Auto-Merge
+        if: github.ref_name == 'main'
+        uses: peter-evans/enable-pull-request-automerge@v3
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          pull-request-number: ${{ steps.create-pr.outputs.pull-request-number }}
+          merge-method: SQUASH

@@ -10,21 +10,27 @@ logger: Logger = getLogger(__name__)
 
 
 class DataFetcher(DataAction):
-    def _download_records(self, file_records: list[FileRecord], directory: str) -> None:
-        logger.info("Downloading files")
-
-        # Filter out duplicates by sha256 - keep first occurrence
-        unique_records: list = []
+    def _unique_records(self, file_records: list[FileRecord]) -> list[FileRecord]:
+        unique_records: list[FileRecord] = []
         seen_sha256: set[str] = set()
         for record in file_records:
             if record.sha256 not in seen_sha256:
-                seen_sha256.add(record.sha256)  # type: ignore[arg-type]
+                seen_sha256.add(record.sha256)
                 unique_records.append(record)
-        
+
         if len(unique_records) < len(file_records):
             duplicates_count = len(file_records) - len(unique_records)
-            logger.warning(f"Filtered out {duplicates_count} duplicate files based on sha256")
+            logger.warning(
+                f"Filtered out {duplicates_count} duplicate files based on sha256"
+            )
 
+        return unique_records
+
+    def _download_records(self, file_records: list[FileRecord], directory: str) -> None:
+        logger.info("Downloading files")
+
+        # Ensure unique records before downloading
+        unique_records: list[FileRecord] = self._unique_records(file_records)
         success: bool = False
         for file_record in pretty_bar(
             unique_records, disable=self.cfg.plain, desc="⬇️   Downloading", unit="file"
@@ -94,7 +100,7 @@ class DataFetcher(DataAction):
         if fetch_cfg.filenames:
             logger.info(f"filtering by file names: {', '.join(fetch_cfg.filenames)}")
             query = query.filter(FileRecord.filename.in_(fetch_cfg.filenames))
-            
+
         if fetch_cfg.tags:
             logger.info(f"filtering by tags: {', '.join(fetch_cfg.tags)}")
             query = query.join(FileRecord.tags).filter(
@@ -105,6 +111,7 @@ class DataFetcher(DataAction):
         file_records: list[FileRecord] = query.limit(fetch_cfg.limit).all()
         logger.info(f"Found {len(file_records)} files matching filters")
 
+        # Output results
         if file_records:
             if fetch_cfg.export_format:
                 os.makedirs(fetch_cfg.directory, exist_ok=True)
