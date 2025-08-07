@@ -133,7 +133,7 @@ class FetchDataConfig(BaseModel):
 
     @field_validator("tags")
     def serialize_tags(cls, tags: list[str] | None) -> list[str] | None:
-        if not tags:
+        if tags:
             tags = [tag.lower() for tag in tags]
 
         return tags

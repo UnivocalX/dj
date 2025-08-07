@@ -18,7 +18,7 @@ class DataFetcher(DataAction):
         seen_sha256: set[str] = set()
         for record in file_records:
             if record.sha256 not in seen_sha256:
-                seen_sha256.add(record.sha256)
+                seen_sha256.add(record.sha256)  # type: ignore[arg-type]
                 unique_records.append(record)
         
         if len(unique_records) < len(file_records):
@@ -89,7 +89,7 @@ class DataFetcher(DataAction):
 
         if fetch_cfg.sha256:
             logger.info(f"filtering by sha256: {', '.join(fetch_cfg.sha256)}")
-            query = query.filter(FileRecord.sha256.in_(fetch_cfg.tags))
+            query = query.filter(FileRecord.sha256.in_(fetch_cfg.tags))  # type: ignore[arg-type]
 
         if fetch_cfg.filenames:
             logger.info(f"filtering by file names: {', '.join(fetch_cfg.filenames)}")
