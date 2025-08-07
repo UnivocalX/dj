@@ -14,12 +14,8 @@ def parser(prog_name: str) -> dict:
     main_parser.add_argument(
         "--version", action="version", version=f"%(prog)s {version(prog_name)}"
     )
-    main_parser.add_argument(
-        "--s3prefix", type=str, help="S3 prefix for data storage"
-    )
-    main_parser.add_argument(
-        "--s3bucket", type=str, help="S3 bucket for data storage"
-    )
+    main_parser.add_argument("--s3prefix", type=str, help="S3 prefix for data storage")
+    main_parser.add_argument("--s3bucket", type=str, help="S3 bucket for data storage")
     main_parser.add_argument("--s3endpoint", type=str, help="S3 endpoint URL")
     main_parser.add_argument(
         "--registry-endpoint", type=str, help="Registry (db) endpoint URL"
@@ -52,9 +48,7 @@ def parser(prog_name: str) -> dict:
     config_parser: ArgumentParser = sub_parsers.add_parser(
         "config", help="configure dj settings."
     )
-    config_parser.add_argument(
-        "--set-s3endpoint", type=str, help="Set S3 endpoint URL"
-    )
+    config_parser.add_argument("--set-s3endpoint", type=str, help="Set S3 endpoint URL")
     config_parser.add_argument("--set-s3bucket", type=str, help="Set S3 bucket")
     config_parser.add_argument("--set-s3prefix", type=str, help="Set S3 prefix")
     config_parser.add_argument(
@@ -79,18 +73,14 @@ def parser(prog_name: str) -> dict:
     load_parser.add_argument(
         "data_src", type=str, help="Source of data files (local or S3)"
     )
-    load_parser.add_argument(
-        "dataset_name", type=str, help="Name of the dataset"
-    )
+    load_parser.add_argument("dataset_name", type=str, help="Name of the dataset")
     load_parser.add_argument("--domain", type=str, help="Domain of the dataset")
     load_parser.add_argument(
         "--stage",
         choices=[stage.value for stage in DataStage],
         help="Data stage",
     )
-    load_parser.add_argument(
-        "--filters", nargs="+", help="Filters for data files"
-    )
+    load_parser.add_argument("--filters", nargs="+", help="Filters for data files")
     load_parser.add_argument(
         "--exists-ok",
         action="store_const",
@@ -123,12 +113,8 @@ def parser(prog_name: str) -> dict:
     )
     fetch_parser.add_argument("--mime", type=str, help="MIME type to filter by")
     fetch_parser.add_argument("--tags", nargs="+", help="Tags to filter by")
-    fetch_parser.add_argument(
-        "--sha256", nargs="+", help="SHA256 hashes to filter by"
-    )
-    fetch_parser.add_argument(
-        "--filenames", nargs="+", help="File names to filter by"
-    )
+    fetch_parser.add_argument("--sha256", nargs="+", help="SHA256 hashes to filter by")
+    fetch_parser.add_argument("--filenames", nargs="+", help="File names to filter by")
     fetch_parser.add_argument(
         "--export-format",
         choices=EXPORT_FORMATS,
