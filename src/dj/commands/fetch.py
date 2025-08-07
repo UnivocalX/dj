@@ -13,14 +13,25 @@ class DataFetcher(DataAction):
     def _download_records(self, file_records: list[FileRecord], directory: str) -> None:
         logger.info("Downloading files")
 
+        # Filter out duplicates by sha256 - keep first occurrence
+        unique_records: list = []
+        seen_sha256: set[str] = set()
+        for record in file_records:
+            if record.sha256 not in seen_sha256:
+                seen_sha256.add(record.sha256)
+                unique_records.append(record)
+        
+        if len(unique_records) < len(file_records):
+            duplicates_count = len(file_records) - len(unique_records)
+            logger.warning(f"Filtered out {duplicates_count} duplicate files based on sha256")
+
         success: bool = False
         for file_record in pretty_bar(
-            file_records, disable=self.cfg.plain, desc="⬇️   Downloading", unit="file"
+            unique_records, disable=self.cfg.plain, desc="⬇️   Downloading", unit="file"
         ):
             local_filepath: str = os.path.join(
                 directory, os.path.basename(file_record.s3uri)
             )
-            logger.info(f"{file_record.s3uri} -> {local_filepath}")
             try:
                 self.storage.download_obj(
                     file_record.s3uri,  # type: ignore[arg-type]
@@ -76,9 +87,16 @@ class DataFetcher(DataAction):
             logger.info(f"filtering by mime: {fetch_cfg.mime}")
             query = query.filter(FileRecord.mime_type.like(f"%{fetch_cfg.mime}%"))
 
+        if fetch_cfg.sha256:
+            logger.info(f"filtering by sha256: {', '.join(fetch_cfg.sha256)}")
+            query = query.filter(FileRecord.sha256.in_(fetch_cfg.tags))
+
+        if fetch_cfg.filenames:
+            logger.info(f"filtering by file names: {', '.join(fetch_cfg.filenames)}")
+            query = query.filter(FileRecord.filename.in_(fetch_cfg.filenames))
+            
         if fetch_cfg.tags:
             logger.info(f"filtering by tags: {', '.join(fetch_cfg.tags)}")
-            # Filter files that have ANY of the specified tags
             query = query.join(FileRecord.tags).filter(
                 TagRecord.name.in_(fetch_cfg.tags)
             )

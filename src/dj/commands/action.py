@@ -25,10 +25,6 @@ class DataAction:
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         logger.debug("Exiting DataAction context manager")
-        if exc_type:
-            logger.error(
-                f"Exception in context manager: {exc_type.__name__}: {exc_val}"
-            )
         self.journalist.close()
         return None
 

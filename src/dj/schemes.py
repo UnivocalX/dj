@@ -125,13 +125,22 @@ class FetchDataConfig(BaseModel):
     stage: DataStage = Field(default=DataStage.RAW)
     mime: str | None = Field(default=None)
     tags: list[str] | None = Field(default=None)
+    filenames: list[str] | None = Field(default=None)
+    sha256: list[str] | None = Field(default=None)
     export_format: str | None = Field(default="json")
     export: bool = Field(default=False)
     dry: bool = Field(default=False)
 
+    @field_validator("tags")
+    def serialize_tags(cls, tags: list[str] | None) -> list[str] | None:
+        if not tags:
+            tags = [tag.lower() for tag in tags]
+
+        return tags
+        
     @field_validator("export_format")
-    def is_supported_format(cls, value: str) -> str:
-        cleaned_format: str = clean_string(value)
+    def is_supported_format(cls, format: str) -> str:
+        cleaned_format: str = clean_string(format)
         if cleaned_format not in EXPORT_FORMATS:
             raise ValueError(f"supported export formats: {', '.join(EXPORT_FORMATS)}")
         return cleaned_format

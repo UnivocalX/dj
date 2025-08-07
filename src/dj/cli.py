@@ -56,6 +56,8 @@ def parser(prog_name: str) -> dict:
     fetch_parser.add_argument("--stage", choices=[stage.value for stage in DataStage])
     fetch_parser.add_argument("--mime", type=str)
     fetch_parser.add_argument("--tags", nargs="+")
+    fetch_parser.add_argument("--sha256", nargs="+")
+    fetch_parser.add_argument("--filenames", nargs="+")
     fetch_parser.add_argument("--export-format", choices=EXPORT_FORMATS)
     fetch_parser.add_argument("--dry", action="store_const", const=True)
     fetch_parser.add_argument("--export", action="store_const", const=True)

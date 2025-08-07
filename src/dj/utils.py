@@ -231,8 +231,6 @@ def pretty_format(
 def resolve_data_s3uri(
     s3bucket: str,
     s3prefix: str,
-    domain: str,
-    dataset_name: str,
     stage: str,
     mime_type: str,
     sha256: str,
@@ -243,7 +241,7 @@ def resolve_data_s3uri(
 
     path: str = "/".join(
         clean(part)
-        for part in [s3prefix, domain, dataset_name, stage, mime_type, sha256]
+        for part in [s3prefix, stage, mime_type, sha256]
         if part
     )
     s3uri_no_ext: str = f"s3://{clean(s3bucket)}/{path}"
