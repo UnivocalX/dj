@@ -74,17 +74,20 @@ jobs:
 
       - name: Version Increment
         run: |
-          COMMIT_MSG="${{ github.event.head_commit.message }}"
-          LOWER_COMMIT_MSG=$(echo "$COMMIT_MSG" | tr '[:upper:]' '[:lower:]')
+          COMMIT_MSG=$(git log -1 --pretty=%B)
+          echo "Commit message: $COMMIT_MSG"
 
           if [[ "${{ github.ref_name }}" == "main" ]]; then
-            if [[ "$LOWER_COMMIT_MSG" == *"feat"* ]]; then
-              poetry version minor
-            elif [[ "$LOWER_COMMIT_MSG" == *"patch"* ]]; then
-              poetry version patch
-            elif [[ "$LOWER_COMMIT_MSG" == *"major"* ]]; then
+            LOWER_MSG=$(echo "$COMMIT_MSG" | tr '[:upper:]' '[:lower:]')
+
+            if [[ "$LOWER_MSG" == *"major"* ]]; then
               poetry version major
+            elif [[ "$LOWER_MSG" == *"feat"* ]]; then
+              poetry version minor
+            elif [[ "$LOWER_MSG" == *"patch"* || "$LOWER_MSG" == *"fix"* ]]; then
+              poetry version patch
             fi
+            
           else
             poetry version prerelease
           fi
