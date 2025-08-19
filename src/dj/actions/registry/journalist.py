@@ -200,7 +200,7 @@ class Journalist:
                     created_at=dataset.created_at,  # type: ignore[arg-type]
                     description=dataset.description,  # type: ignore[arg-type]
                     total_files=file_count,  # type: ignore[arg-type]
-                ) 
+                )
             )
 
         return result
