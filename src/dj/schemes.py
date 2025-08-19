@@ -106,8 +106,20 @@ class DJConfig(StorageConfig, RegistryConfig):
 
 
 class ConfigureDJConfig(BaseSettingsConfig):
-    set_s3prefix: str | None = Field(default=None, description="Set S3 prefix")
+    set_s3endpoint: str | None = Field(default=None, description="Set S3 endpoint URL")
     set_s3bucket: str | None = Field(default=None, description="Set S3 bucket")
+    set_s3prefix: str | None = Field(default=None, description="Set S3 prefix")
+
+    set_registry_endpoint: str | None = Field(
+        default=None, description="Set registry (db) endpoint URL"
+    )
+    set_echo: bool = Field(default=False, description="Enable SQL command echoing")
+    set_pool_size: int | None = Field(
+        default=None, description="Set database connection pool size"
+    )
+    set_max_overflow: int | None = Field(
+        default=None, description="Set max overflow for database connections"
+    )
 
 
 class LoadDataConfig(BaseConfig):
