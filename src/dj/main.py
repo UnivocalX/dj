@@ -42,7 +42,7 @@ def main() -> None:
     match dj_cli_cfg.command:
         case "config":
             dj_manager.configure(ConfigureDJConfig(**parsed_args))
-            
+
         case "load":
             with DataLoader(dj_cfg) as data_loader:
                 data_loader.load(LoadDataConfig(**parsed_args))

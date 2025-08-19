@@ -59,7 +59,10 @@ def parser(prog_name: str) -> dict:
         help="Set registry (db) endpoint URL",
     )
     config_parser.add_argument(
-        "--set-echo", action="store_true", help="Enable SQL command echoing"
+        "--set-echo",
+        action="store_const",
+        const=True,
+        help="Enable SQL command echoing",
     )
     config_parser.add_argument(
         "--set-pool-size", type=int, help="Set database connection pool size"
