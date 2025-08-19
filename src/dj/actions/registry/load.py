@@ -58,6 +58,8 @@ class DataLoader(BaseAction):
                         stage=load_cfg.stage,
                         tags=load_cfg.tags,
                     )
+                    
+                    self.storage.upload(metadata.filepath, datafile_record.s3uri)  # type: ignore[arg-type]
             except IntegrityError as e:
                 if "files.s3uri" in str(e.orig):
                     raise FileExistsError(
@@ -65,7 +67,7 @@ class DataLoader(BaseAction):
                     ) from e
                 raise
 
-            self.storage.upload(metadata.filepath, datafile_record.s3uri)  # type: ignore[arg-type]
+                
             return datafile_record
 
     def load(self, load_cfg: LoadDataConfig) -> dict[str, FileRecord]:

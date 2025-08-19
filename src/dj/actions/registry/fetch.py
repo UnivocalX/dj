@@ -62,9 +62,7 @@ class DataFetcher(BaseAction):
 
         export_data(filepath, records_dict)
 
-    def fetch(
-        self, fetch_cfg: FetchDataConfig, delay: int | None = None
-    ) -> list[FileRecord]:
+    def fetch(self, fetch_cfg: FetchDataConfig) -> list[FileRecord]:
         logger.info("Starting to Fetch data.")
         logger.info(
             pretty_format(
