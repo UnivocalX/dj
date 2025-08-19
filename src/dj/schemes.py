@@ -1,9 +1,15 @@
 import os
+from datetime import datetime
 from functools import cached_property
 from pathlib import Path
 from urllib.parse import urlparse
 
-from pydantic import BaseModel, Field, SecretStr, computed_field, field_validator
+from pydantic import (
+    BaseModel,
+    Field,
+    computed_field,
+    field_validator,
+)
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from dj.constants import (
@@ -16,9 +22,7 @@ from dj.constants import (
 from dj.utils import clean_string, format_file_size, resolve_internal_dir
 
 
-class BaseConfig(BaseSettings):
-    """Base configuration with common settings."""
-
+class BaseSettingsConfig(BaseSettings):
     model_config = SettingsConfigDict(
         str_strip_whitespace=True,
         populate_by_name=True,
@@ -27,7 +31,16 @@ class BaseConfig(BaseSettings):
     )
 
 
-class DJConfigCLI(BaseConfig):
+class Dataset(BaseModel):
+    id: int
+    name: str
+    domain: str
+    created_at: datetime
+    description: str | None
+    total_files: int
+
+
+class DJConfigCLI(BaseSettingsConfig):
     command: str = Field(
         default="config",
         description="Command to execute (config, load, etc.)",
@@ -37,20 +50,11 @@ class DJConfigCLI(BaseConfig):
     plain: bool = Field(default=False, description="Disable colors and loading bar")
 
 
-class S3Credentials(BaseConfig):
-    access_key_id: SecretStr | None = Field(
-        default=None, description="AWS S3 Access Key ID"
-    )
-    secret_access_key: SecretStr | None = Field(
-        default=None, description="AWS S3 Secret Access Key"
-    )
-
-
-class StorageConfig(S3Credentials):
+class StorageConfig(BaseSettingsConfig):
     s3endpoint: str | None = Field(default=None)
 
 
-class RegistryConfig(BaseConfig):
+class RegistryConfig(BaseSettingsConfig):
     registry_endpoint: str | None = Field(
         default=None,
         description="Database connection URL. If not provided, SQLite will be used.",
@@ -91,12 +95,24 @@ class DJConfig(StorageConfig, RegistryConfig):
     plain: bool = Field(default=False, description="disable loading bar")
 
 
-class ConfigureDJConfig(BaseConfig):
-    set_s3prefix: str | None = Field(default=None, description="Set S3 prefix")
+class ConfigureDJConfig(BaseSettingsConfig):
+    set_s3endpoint: str | None = Field(default=None, description="Set S3 endpoint URL")
     set_s3bucket: str | None = Field(default=None, description="Set S3 bucket")
+    set_s3prefix: str | None = Field(default=None, description="Set S3 prefix")
+
+    set_registry_endpoint: str | None = Field(
+        default=None, description="Set registry (db) endpoint URL"
+    )
+    set_echo: bool = Field(default=False, description="Enable SQL command echoing")
+    set_pool_size: int | None = Field(
+        default=None, description="Set database connection pool size"
+    )
+    set_max_overflow: int | None = Field(
+        default=None, description="Set max overflow for database connections"
+    )
 
 
-class LoadDataConfig(BaseModel):
+class LoadDataConfig(BaseSettingsConfig):
     data_src: str
     dataset_name: str
     description: str | None = Field(default=None)
@@ -117,7 +133,7 @@ class LoadDataConfig(BaseModel):
         return v
 
 
-class FetchDataConfig(BaseModel):
+class FetchDataConfig(BaseSettingsConfig):
     directory: str
     limit: int
     domain: str = Field(default=DEFAULT_DOMAIN)
@@ -166,3 +182,14 @@ class FileMetadata(BaseModel):
     @cached_property
     def filename(self) -> str:
         return os.path.basename(self.filepath)
+
+
+class ListDatasetsConfig(BaseSettingsConfig):
+    domain: str = Field(default=DEFAULT_DOMAIN)
+    name_pattern: str | None = Field(default=None)
+    limit: int | None = Field(default=None)
+    offset: int | None = Field(default=None)
+
+    @field_validator("domain")
+    def clean_strings(cls, v: str) -> str:
+        return clean_string(v)

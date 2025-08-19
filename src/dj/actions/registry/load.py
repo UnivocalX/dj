@@ -2,15 +2,11 @@ from logging import Logger, getLogger
 
 from sqlalchemy.exc import IntegrityError
 
-from dj.actions.base import BaseAction
-from dj.inspect import FileInspector
-from dj.registry.models import DatasetRecord, FileRecord
+from dj.actions.inspect import FileInspector
+from dj.actions.registry.base import BaseAction
+from dj.actions.registry.models import DatasetRecord, FileRecord
 from dj.schemes import FileMetadata, LoadDataConfig
-from dj.utils import (
-    collect_files,
-    merge_s3uri,
-    pretty_bar,
-)
+from dj.utils import collect_files, delay, merge_s3uri, pretty_bar
 
 logger: Logger = getLogger(__name__)
 
@@ -45,27 +41,20 @@ class DataLoader(BaseAction):
             metadata: FileMetadata = FileInspector(local_path).metadata
 
             # Create a data file record
-            try:
-                with self.journalist.transaction():
-                    datafile_record: FileRecord = self.journalist.add_file_record(
-                        dataset=dataset,
-                        s3bucket=self.cfg.s3bucket,  # type: ignore[arg-type]
-                        s3prefix=self.cfg.s3prefix,
-                        filename=metadata.filename,
-                        sha256=metadata.sha256,
-                        mime_type=metadata.mime_type,
-                        size_bytes=metadata.size_bytes,
-                        stage=load_cfg.stage,
-                        tags=load_cfg.tags,
-                    )
-            except IntegrityError as e:
-                if "files.s3uri" in str(e.orig):
-                    raise FileExistsError(
-                        f"File {metadata.filename} already exists in {load_cfg.domain}\\{load_cfg.dataset_name}"
-                    ) from e
-                raise
+            with self.journalist.transaction():
+                datafile_record: FileRecord = self.journalist.add_file_record(
+                    dataset=dataset,
+                    s3bucket=self.cfg.s3bucket,  # type: ignore[arg-type]
+                    s3prefix=self.cfg.s3prefix,
+                    filename=metadata.filename,
+                    sha256=metadata.sha256,
+                    mime_type=metadata.mime_type,
+                    size_bytes=metadata.size_bytes,
+                    stage=load_cfg.stage,
+                    tags=load_cfg.tags,
+                )
 
-            self.storage.upload(metadata.filepath, datafile_record.s3uri)  # type: ignore[arg-type]
+                self.storage.upload(metadata.filepath, datafile_record.s3uri, False)  # type: ignore[arg-type]
             return datafile_record
 
     def load(self, load_cfg: LoadDataConfig) -> dict[str, FileRecord]:
@@ -88,6 +77,7 @@ class DataLoader(BaseAction):
         # Load files
         logger.info(f"Starting to process {len(datafiles)} file\\s")
         processed_datafiles: dict[str, FileRecord] = {}
+        delay()
         for datafile in pretty_bar(
             datafiles, disable=self.cfg.plain, desc="☁️   Loading", unit="file"
         ):
@@ -95,11 +85,14 @@ class DataLoader(BaseAction):
                 datafile_record: FileRecord = self._load_datafile(
                     load_cfg, dataset_record, datafile
                 )
-            except Exception as e:
-                logger.error(e)
-                logger.error(f"Failed to load {datafile}.\n")
-            else:
                 processed_datafiles[datafile] = datafile_record
+            except IntegrityError as e:
+                if "UNIQUE constraint" in str(e.orig):
+                    logger.warning(
+                        f'File {datafile} already exists in dataset "{load_cfg.domain}\\{load_cfg.dataset_name}"'
+                    )
+            except Exception:
+                logger.exception(f"Failed to load {datafile}.\n")
 
         if not processed_datafiles:
             raise ValueError(f"Failed to load datafiles ({load_cfg.data_src}).")

@@ -6,11 +6,11 @@ from typing import TypeVar
 from sqlalchemy import Engine, create_engine
 from sqlalchemy.orm import Session, sessionmaker
 
+from dj.actions.registry.models import Base, DatasetRecord, FileRecord, TagRecord
 from dj.constants import DataStage
 from dj.exceptions import DatasetExist
-from dj.registry.models import Base, DatasetRecord, FileRecord, TagRecord
-from dj.schemes import RegistryConfig
-from dj.utils import pretty_format
+from dj.schemes import Dataset, RegistryConfig
+from dj.utils import pretty_format, resolve_data_s3uri
 
 T = TypeVar("T")
 logger: Logger = getLogger(__name__)
@@ -156,6 +156,55 @@ class Journalist:
 
         return dataset
 
+    def list_datasets(
+        self,
+        domain: str,
+        name_pattern: str | None = None,
+        limit: int | None = None,
+        offset: int | None = None,
+    ) -> list[Dataset]:
+        query = self.session.query(DatasetRecord)
+
+        # Apply filters
+        query = query.filter(DatasetRecord.domain == domain)
+
+        if name_pattern is not None:
+            logger.debug(f"Filtering datasets by name pattern: {name_pattern}")
+            query = query.filter(DatasetRecord.name.contains(name_pattern))
+
+        # Apply pagination
+        if offset is not None:
+            logger.debug(f"Applying offset: {offset}")
+            query = query.offset(offset)
+        if limit is not None:
+            logger.debug(f"Applying limit: {limit}")
+            query = query.limit(limit)
+
+        datasets: list[DatasetRecord] = query.all()
+
+        logger.info(f"Found {len(datasets)} datasets matching filters")
+        result: list[Dataset] = []
+        for dataset in datasets:
+            file_count = (
+                self.session.query(FileRecord)
+                .filter(FileRecord.dataset_id == dataset.id)
+                .count()
+            )
+
+            logger.debug(f"Dataset {dataset.name} has {file_count} files")
+            result.append(
+                Dataset(
+                    id=dataset.id,  # type: ignore[arg-type]
+                    name=dataset.name,  # type: ignore[arg-type]
+                    domain=dataset.domain,  # type: ignore[arg-type]
+                    created_at=dataset.created_at,  # type: ignore[arg-type]
+                    description=dataset.description,  # type: ignore[arg-type]
+                    total_files=file_count,  # type: ignore[arg-type]
+                )
+            )
+
+        return result
+
     # File methods
     def get_file_record(
         self,
@@ -219,9 +268,20 @@ class Journalist:
             for tag_name in tags:
                 tags_records.append(self.add_tag(tag_name.strip(), commit=False))
 
+        # Create S3 URI
+        s3uri = resolve_data_s3uri(
+            s3bucket=s3bucket,
+            s3prefix=s3prefix,
+            stage=stage.value,
+            mime_type=mime_type,
+            sha256=sha256,
+            ext=os.path.splitext(filename)[1],
+        )
+
         logger.debug("Creating FileRecord object")
         datafile: FileRecord = FileRecord(
             dataset_id=dataset.id,
+            s3uri=s3uri,
             s3bucket=s3bucket,
             s3prefix=s3prefix,
             stage=stage,
@@ -240,6 +300,7 @@ class Journalist:
             pretty_format(
                 {
                     "dataset_id": dataset.id,
+                    "s3uri": s3uri,
                     "s3bucket": s3bucket,
                     "s3prefix": s3prefix,
                     "filename": filename,
