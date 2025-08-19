@@ -10,7 +10,7 @@ from dj.actions.registry.models import Base, DatasetRecord, FileRecord, TagRecor
 from dj.constants import DataStage
 from dj.exceptions import DatasetExist
 from dj.schemes import Dataset, RegistryConfig
-from dj.utils import pretty_format
+from dj.utils import pretty_format, resolve_data_s3uri
 
 T = TypeVar("T")
 logger: Logger = getLogger(__name__)
@@ -268,9 +268,20 @@ class Journalist:
             for tag_name in tags:
                 tags_records.append(self.add_tag(tag_name.strip(), commit=False))
 
+        # Create S3 URI
+        s3uri = resolve_data_s3uri(
+            s3bucket=s3bucket,
+            s3prefix=s3prefix,
+            stage=stage.value,
+            mime_type=mime_type,
+            sha256=sha256,
+            ext=os.path.splitext(filename)[1],
+        )
+
         logger.debug("Creating FileRecord object")
         datafile: FileRecord = FileRecord(
             dataset_id=dataset.id,
+            s3uri=s3uri,
             s3bucket=s3bucket,
             s3prefix=s3prefix,
             stage=stage,
@@ -289,6 +300,7 @@ class Journalist:
             pretty_format(
                 {
                     "dataset_id": dataset.id,
+                    "s3uri": s3uri,
                     "s3bucket": s3bucket,
                     "s3prefix": s3prefix,
                     "filename": filename,

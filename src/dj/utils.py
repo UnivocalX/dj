@@ -5,6 +5,7 @@ import re
 from glob import glob
 from importlib.resources import files as resource_files
 from logging import Logger, getLogger
+from time import sleep
 from typing import Any, Iterable, TypeVar
 from urllib.parse import quote
 
@@ -12,7 +13,13 @@ import yaml
 from pydantic.alias_generators import to_pascal as snake2pascal
 from tqdm import tqdm
 
-from dj.constants import ASSETS_DIRECTORY, FALSE_STRINGS, PROGRAM_NAME, TRUE_STRINGS
+from dj.constants import (
+    ASSETS_DIRECTORY,
+    DEFAULT_DELAY,
+    FALSE_STRINGS,
+    PROGRAM_NAME,
+    TRUE_STRINGS,
+)
 
 logger: Logger = getLogger(__name__)
 
@@ -260,3 +267,8 @@ def export_data(filepath: str, data: dict[str, Any]) -> None:
             raise ValueError(
                 f"Unsupported file format: {format}. Supported formats: .json, .yaml, .yml, .csv"
             )
+
+
+def delay(seconds: int | None = None) -> None:
+    logger.debug(f"Delaying for {seconds} seconds...")
+    sleep(seconds or DEFAULT_DELAY)

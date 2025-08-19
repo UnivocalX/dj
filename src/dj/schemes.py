@@ -7,7 +7,6 @@ from urllib.parse import urlparse
 from pydantic import (
     BaseModel,
     Field,
-    SecretStr,
     computed_field,
     field_validator,
 )
@@ -51,16 +50,7 @@ class DJConfigCLI(BaseSettingsConfig):
     plain: bool = Field(default=False, description="Disable colors and loading bar")
 
 
-class S3Credentials(BaseSettingsConfig):
-    access_key_id: SecretStr | None = Field(
-        default=None, description="AWS S3 Access Key ID"
-    )
-    secret_access_key: SecretStr | None = Field(
-        default=None, description="AWS S3 Secret Access Key"
-    )
-
-
-class StorageConfig(S3Credentials):
+class StorageConfig(BaseSettingsConfig):
     s3endpoint: str | None = Field(default=None)
 
 

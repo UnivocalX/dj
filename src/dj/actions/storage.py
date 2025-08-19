@@ -25,13 +25,6 @@ class Storage:
         client_params: dict = {
             "config": client_config,
         }
-        if self.cfg.access_key_id and self.cfg.secret_access_key:
-            client_params["aws_access_key_id"] = (
-                self.cfg.access_key_id.get_secret_value()
-            )
-            client_params["aws_secret_access_key"] = (
-                self.cfg.secret_access_key.get_secret_value()
-            )
 
         if self.cfg.s3endpoint:
             client_params["endpoint_url"] = self.cfg.s3endpoint
@@ -107,7 +100,11 @@ class Storage:
 
         logger.debug(f"copy completed successful {src_s3uri} -> {dst_s3uri}")
 
-    def upload(self, filepath: str, dst_s3uri: str) -> None:
+    def upload(self, filepath: str, dst_s3uri: str, overwrite: bool = True) -> None:
+        if not overwrite and self.obj_exists(dst_s3uri):
+            logger.debug(f"File {dst_s3uri} already exists, skipping upload.")
+            return
+
         dst_s3bucket, dst_s3key = split_s3uri(dst_s3uri)
         self.client.upload_file(filepath, dst_s3bucket, dst_s3key)
         logger.debug(f"uploaded {filepath} -> {dst_s3uri}")
