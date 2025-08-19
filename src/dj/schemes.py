@@ -6,7 +6,6 @@ from urllib.parse import urlparse
 
 from pydantic import (
     BaseModel,
-    ConfigDict,
     Field,
     SecretStr,
     computed_field,
@@ -33,12 +32,13 @@ class BaseSettingsConfig(BaseSettings):
     )
 
 
-class BaseConfig(BaseSettings):
-    model_config = ConfigDict(
-        str_strip_whitespace=True,
-        populate_by_name=True,
-        extra="ignore",
-    )
+class Dataset(BaseModel):
+    id: int
+    name: str
+    domain: str
+    created_at: datetime
+    description: str | None
+    total_files: int
 
 
 class DJConfigCLI(BaseSettingsConfig):
@@ -122,7 +122,7 @@ class ConfigureDJConfig(BaseSettingsConfig):
     )
 
 
-class LoadDataConfig(BaseConfig):
+class LoadDataConfig(BaseSettingsConfig):
     data_src: str
     dataset_name: str
     description: str | None = Field(default=None)
@@ -143,7 +143,7 @@ class LoadDataConfig(BaseConfig):
         return v
 
 
-class FetchDataConfig(BaseConfig):
+class FetchDataConfig(BaseSettingsConfig):
     directory: str
     limit: int
     domain: str = Field(default=DEFAULT_DOMAIN)
@@ -194,18 +194,7 @@ class FileMetadata(BaseModel):
         return os.path.basename(self.filepath)
 
 
-class Dataset(BaseConfig):
-    id: int
-    name: str
-    domain: str
-    created_at: datetime
-    description: str | None
-    total_files: int
-
-    model_config = ConfigDict(extra="ignore")
-
-
-class ListDatasetsConfig(BaseConfig):
+class ListDatasetsConfig(BaseSettingsConfig):
     domain: str = Field(default=DEFAULT_DOMAIN)
     name_pattern: str | None = Field(default=None)
     limit: int | None = Field(default=None)

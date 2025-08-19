@@ -194,13 +194,13 @@ class Journalist:
             logger.debug(f"Dataset {dataset.name} has {file_count} files")
             result.append(
                 Dataset(
-                    id=dataset.id,
-                    name=dataset.name,
-                    domain=dataset.domain,
-                    created_at=dataset.created_at,
-                    description=dataset.description,
-                    total_files=file_count,
-                )
+                    id=dataset.id,  # type: ignore[arg-type]
+                    name=dataset.name,  # type: ignore[arg-type]
+                    domain=dataset.domain,  # type: ignore[arg-type]
+                    created_at=dataset.created_at,  # type: ignore[arg-type]
+                    description=dataset.description,  # type: ignore[arg-type]
+                    total_files=file_count,  # type: ignore[arg-type]
+                ) 
             )
 
         return result
