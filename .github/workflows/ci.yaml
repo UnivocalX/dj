@@ -5,6 +5,7 @@ on:
   push:
     branches:
       - main
+      - "major/**"
       - "feat/**"
       - "patch/**"
       - "experiment/**"
@@ -101,7 +102,7 @@ jobs:
               fi
             else
               echo "No branch name detected - using prerelease"
-              poetry version prerelease
+              poetry version patch
             fi
           else
             echo "Not on main branch (${{ github.ref_name }}) - using prerelease versioning"
