@@ -122,7 +122,7 @@ class Storage:
         if not overwrite and os.path.exists(dst_path):
             logger.debug(f"File {dst_path} already exists, skipping download.")
             return
-        
+
         os.makedirs(os.path.dirname(dst_path), exist_ok=True)
         s3bucket, s3key = split_s3uri(s3uri)
         with open(dst_path, "wb") as f:

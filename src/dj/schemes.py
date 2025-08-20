@@ -132,7 +132,7 @@ class LoadDataConfig(BaseSettingsConfig):
             tags = [clean_string(tag) for tag in tags]
 
         return tags
-        
+
     @field_validator("data_src")
     def abs_path(cls, v: str) -> str:
         if os.path.exists(v):
