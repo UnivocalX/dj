@@ -74,21 +74,37 @@ jobs:
 
       - name: Version Increment
         run: |
-          COMMIT_MSG=$(git log -1 --pretty=%B)
-          echo "Commit message: $COMMIT_MSG"
-
           if [[ "${{ github.ref_name }}" == "main" ]]; then
-            LOWER_MSG=$(echo "$COMMIT_MSG" | tr '[:upper:]' '[:lower:]')
-
-            if [[ "$LOWER_MSG" == *"major"* ]]; then
-              poetry version major
-            elif [[ "$LOWER_MSG" == *"feat"* ]]; then
-              poetry version minor
-            elif [[ "$LOWER_MSG" == *"patch"* || "$LOWER_MSG" == *"fix"* ]]; then
-              poetry version patch
+            echo "Running on main branch - extracting branch name from commit"
+            
+            COMMIT_MSG=$(git log -1 --pretty=%B)
+            echo "Commit message: $COMMIT_MSG"
+            
+            # Try multiple patterns to extract branch name
+            BRANCH_NAME=$(echo "$COMMIT_MSG" | grep -oE "from [^/[:space:]]+/[^[:space:]]+" | cut -d' ' -f2 | head -1)
+            if [[ -z "$BRANCH_NAME" ]]; then
+              BRANCH_NAME=$(echo "$COMMIT_MSG" | grep -oE "branch '[^']+'" | sed "s/branch '\(.*\)'/\1/" | head -1)
             fi
             
+            if [[ -n "$BRANCH_NAME" ]]; then
+              echo "Detected branch: $BRANCH_NAME"
+              
+              if [[ "$BRANCH_NAME" == major/* ]]; then
+                echo "Major branch detected - bumping major version"
+                poetry version major
+              elif [[ "$BRANCH_NAME" == feat/* ]]; then
+                echo "Feature branch detected - bumping minor version"
+                poetry version minor
+              else
+                echo "Patch branch detected - bumping patch version"
+                poetry version patch
+              fi
+            else
+              echo "No branch name detected - using prerelease"
+              poetry version prerelease
+            fi
           else
+            echo "Not on main branch (${{ github.ref_name }}) - using prerelease versioning"
             poetry version prerelease
           fi
 
