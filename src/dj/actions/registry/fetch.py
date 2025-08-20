@@ -26,7 +26,28 @@ class DataFetcher(BaseAction):
 
         return unique_records
 
-    def _download_records(self, file_records: list[FileRecord], directory: str) -> None:
+    def _get_local_filepath(
+        self, file_record: FileRecord, directory: str, flat: bool
+    ) -> str:
+        if flat:
+            local_filepath: str = os.path.join(
+                directory, os.path.basename(file_record.s3uri)
+            )
+        else:
+            local_filepath = os.path.join(
+                os.path.join(directory, file_record.mime_type),
+                os.path.basename(file_record.s3uri),
+            )
+
+        return local_filepath
+
+    def _download_records(
+        self,
+        file_records: list[FileRecord],
+        directory: str,
+        overwrite: bool,
+        flat: bool = False,
+    ) -> None:
         logger.info("Downloading files")
 
         # Ensure unique records before downloading
@@ -35,13 +56,12 @@ class DataFetcher(BaseAction):
         for file_record in pretty_bar(
             unique_records, disable=self.cfg.plain, desc="⬇️   Downloading", unit="file"
         ):
-            local_filepath: str = os.path.join(
-                directory, os.path.basename(file_record.s3uri)
-            )
+            local_filepath: str = self._get_local_filepath(file_record, directory, flat)
             try:
                 self.storage.download_obj(
                     file_record.s3uri,  # type: ignore[arg-type]
                     local_filepath,
+                    overwrite=overwrite,
                 )
             except Exception as e:
                 logger.error(e)
@@ -77,47 +97,50 @@ class DataFetcher(BaseAction):
         query = self.journalist.session.query(FileRecord).join(DatasetRecord)
 
         # Apply domain filter (always present)
-        logger.info(f"filtering by domain: {fetch_cfg.domain}")
+        logger.debug(f"filtering by domain: {fetch_cfg.domain}")
         query = query.filter(DatasetRecord.domain == fetch_cfg.domain)
 
         # Apply stage filter (always present)
-        logger.info(f"filtering by stage: {fetch_cfg.stage}")
+        logger.debug(f"filtering by stage: {fetch_cfg.stage}")
         query = query.filter(FileRecord.stage == fetch_cfg.stage)
 
         # Apply optional filters
         if fetch_cfg.dataset_name:
-            logger.info(f"filtering by dataset: {fetch_cfg.dataset_name}")
+            logger.debug(f"filtering by dataset: {fetch_cfg.dataset_name}")
             query = query.filter(DatasetRecord.name == fetch_cfg.dataset_name)
 
         if fetch_cfg.mime:
-            logger.info(f"filtering by mime: {fetch_cfg.mime}")
+            logger.debug(f"filtering by mime: {fetch_cfg.mime}")
             query = query.filter(FileRecord.mime_type.like(f"%{fetch_cfg.mime}%"))
 
         if fetch_cfg.sha256:
-            logger.info(f"filtering by sha256: {', '.join(fetch_cfg.sha256)}")
+            logger.debug(f"filtering by sha256: {', '.join(fetch_cfg.sha256)}")
             query = query.filter(FileRecord.sha256.in_(fetch_cfg.sha256))  # type: ignore[arg-type]
 
         if fetch_cfg.filenames:
-            logger.info(f"filtering by file names: {', '.join(fetch_cfg.filenames)}")
+            logger.debug(f"filtering by file names: {', '.join(fetch_cfg.filenames)}")
             query = query.filter(FileRecord.filename.in_(fetch_cfg.filenames))
 
         if fetch_cfg.tags:
-            logger.info(f"filtering by tags: {', '.join(fetch_cfg.tags)}")
+            logger.debug(f"filtering by tags: {', '.join(fetch_cfg.tags)}")
             query = query.join(FileRecord.tags).filter(
                 TagRecord.name.in_(fetch_cfg.tags)
             )
 
         # Apply limit and execute query
         file_records: list[FileRecord] = query.limit(fetch_cfg.limit).all()
-        logger.info(f"Found {len(file_records)} files matching filters")
+        logger.info(f"Found {len(file_records)} files.")
 
         # Output results
         if file_records:
             if fetch_cfg.export:
-                os.makedirs(fetch_cfg.directory, exist_ok=True)
                 self._export_records(file_records, fetch_cfg.fetch_export_filepath)
             if not fetch_cfg.dry:
-                os.makedirs(fetch_cfg.directory, exist_ok=True)
-                self._download_records(file_records, fetch_cfg.directory)
+                self._download_records(
+                    file_records,
+                    fetch_cfg.directory,
+                    fetch_cfg.overwrite,
+                    fetch_cfg.flat,
+                )
 
         return file_records

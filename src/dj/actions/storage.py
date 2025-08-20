@@ -1,3 +1,4 @@
+import os
 import posixpath
 from logging import Logger, getLogger
 from typing import Iterable
@@ -117,7 +118,12 @@ class Storage:
         )
         logger.debug(f"deleted {s3uri}")
 
-    def download_obj(self, s3uri: str, dst_path: str) -> None:
+    def download_obj(self, s3uri: str, dst_path: str, overwrite: bool = True) -> None:
+        if not overwrite and os.path.exists(dst_path):
+            logger.debug(f"File {dst_path} already exists, skipping download.")
+            return
+
+        os.makedirs(os.path.dirname(dst_path), exist_ok=True)
         s3bucket, s3key = split_s3uri(s3uri)
         with open(dst_path, "wb") as f:
             self.client.download_fileobj(s3bucket, s3key, f)

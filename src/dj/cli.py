@@ -137,6 +137,18 @@ def parser(prog_name: str) -> dict:
         const=True,
         help="Export fetched data to a file",
     )
+    fetch_parser.add_argument(
+        "--overwrite",
+        action="store_const",
+        const=True,
+        help="Overwrite existing files during fetch",
+    )
+    fetch_parser.add_argument(
+        "--flat",
+        action="store_const",
+        const=True,
+        help="Store files in a flat structure without subdirectories",
+    )
 
     # List
     list_parser: ArgumentParser = sub_parsers.add_parser(

@@ -115,16 +115,23 @@ class ConfigureDJConfig(BaseSettingsConfig):
 class LoadDataConfig(BaseSettingsConfig):
     data_src: str
     dataset_name: str
-    description: str | None = Field(default=None)
     domain: str = Field(default=DEFAULT_DOMAIN)
+    description: str | None = Field(default=None)
     stage: DataStage = Field(default=DataStage.RAW)
     tags: list[str] | None = Field(default=None)
     filters: list[str] | None = Field(default=None)
     exists_ok: bool = Field(default=False)
 
-    @field_validator("domain")
-    def clean_strings(cls, v: str) -> str:
-        return clean_string(v)
+    @field_validator("domain", "dataset_name")
+    def clean_strings(cls, string: str) -> str:
+        return clean_string(string)
+
+    @field_validator("tags")
+    def clean_tags(cls, tags: list[str] | None) -> list[str] | None:
+        if tags:
+            tags = [clean_string(tag) for tag in tags]
+
+        return tags
 
     @field_validator("data_src")
     def abs_path(cls, v: str) -> str:
@@ -146,6 +153,8 @@ class FetchDataConfig(BaseSettingsConfig):
     export_format: str | None = Field(default="json")
     export: bool = Field(default=False)
     dry: bool = Field(default=False)
+    overwrite: bool = Field(default=False, description="Overwrite existing files")
+    flat: bool = Field(default=False, description="Store files in a flat structure")
 
     @field_validator("tags")
     def serialize_tags(cls, tags: list[str] | None) -> list[str] | None:

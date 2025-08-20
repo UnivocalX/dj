@@ -139,7 +139,7 @@ class Journalist:
         description: str | None = None,
         exists_ok: bool = True,
     ) -> DatasetRecord:
-        logger.info(f"Adding files to dataset: {domain}\\{name}")
+        logger.info(f"Adding files to dataset: {domain}/{name}")
 
         # Check if dataset exists
         logger.debug(f"Checking if dataset '{name}' already exists")
@@ -228,7 +228,7 @@ class Journalist:
 
         elif filename and dataset_name and domain:
             logger.debug(
-                f"Searching by filename: {filename} in dataset {dataset_name}\\{domain}"
+                f"Searching by filename: {filename} in dataset {dataset_name}/{domain}"
             )
             file_record = (
                 query.join(DatasetRecord)
