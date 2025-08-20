@@ -13,6 +13,7 @@ on:
       - "**.md"
       - "docs/**"
       - ".gitignore"
+      - ".github/workflows/**"
 
 jobs:
   continuous-integration:
@@ -101,7 +102,7 @@ jobs:
                 poetry version patch
               fi
             else
-              echo "No branch name detected - using prerelease"
+              echo "No branch name detected - bumping patch version"
               poetry version patch
             fi
           else
