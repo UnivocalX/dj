@@ -112,11 +112,11 @@ def get_directory_size(directory: str) -> float:
 
 
 def clean_string(
-    file_name: str,
-    regex: str = r"[^a-zA-Z0-9]",
+    filename: str,
+    regex: str = r"[^a-zA-Z0-9/.]",
     case: str = "lower",
 ) -> str:
-    base_name, ext = os.path.splitext(file_name)
+    base_name, ext = os.path.splitext(filename)
     cleaned_base = re.sub(regex, "", base_name)
 
     if case == "lower":
@@ -256,7 +256,8 @@ def resolve_data_s3uri(
 
 def export_data(filepath: str, data: dict[str, Any]) -> None:
     format: str = os.path.splitext(filepath)[1].lower()
-
+    
+    os.makedirs(os.path.dirname(filepath), exist_ok=True)
     logger.debug(f"exporting data -> {filepath}")
     with open(filepath, "w") as export_file:
         if format == ".json":
