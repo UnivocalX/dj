@@ -122,7 +122,7 @@ class DataFetcher(BaseAction):
                 title="🔍 Filters",
                 data=fetch_cfg.model_dump(
                     exclude=["export_format", "export", "dry", "fetch_export_filepath"]  # type: ignore[arg-type]
-                ), 
+                ),
             )
         )
 
