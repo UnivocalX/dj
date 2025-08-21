@@ -171,4 +171,60 @@ def parser(prog_name: str) -> dict:
         "--offset", type=int, help="Offset for pagination of datasets"
     )
 
+    # Tags
+    tags_parser: ArgumentParser = sub_parsers.add_parser(
+        "tags", help="manage dataset tags."
+    )
+    tags_subparsers = tags_parser.add_subparsers(dest="subcommand", required=True)
+
+    # Tags add
+    tags_add_parser: ArgumentParser = tags_subparsers.add_parser(
+        "add", help="add tags to a dataset."
+    )
+    tags_add_parser.add_argument("dataset_name", type=str, help="Name of the dataset")
+    tags_add_parser.add_argument(
+        "tags", nargs="+", help="Tags to add to the dataset files"
+    )
+    tags_add_parser.add_argument("--domain", type=str, help="Domain of the dataset.")
+    tags_add_parser.add_argument(
+        "--stage",
+        choices=[stage.value for stage in DataStage],
+        help="Data stage of the dataset files",
+    )
+    tags_add_parser.add_argument(
+        "--sha256",
+        nargs="+",
+        help="SHA256 hashes of the dataset files to tag",
+    )
+    tags_add_parser.add_argument(
+        "--filenames",
+        nargs="+",
+        help="File names of the dataset files to tag",
+    )
+    # Tags remove
+    tags_remove_parser: ArgumentParser = tags_subparsers.add_parser(
+        "remove", help="remove tags from a dataset."
+    )
+    tags_remove_parser.add_argument(
+        "dataset_name", type=str, help="Name of the dataset"
+    )
+    tags_remove_parser.add_argument(
+        "tags", nargs="+", help="Tags to remove from the dataset files"
+    )
+    tags_remove_parser.add_argument("--domain", type=str, help="Domain of the dataset.")
+    tags_remove_parser.add_argument(
+        "--stage",
+        choices=[stage.value for stage in DataStage],
+        help="Data stage of the dataset files",
+    )
+    tags_remove_parser.add_argument(
+        "--sha256",
+        nargs="+",
+        help="SHA256 hashes of the dataset files to untag",
+    )
+    tags_remove_parser.add_argument(
+        "--filenames",
+        nargs="+",
+        help="File names of the dataset files to untag",
+    )
     return {k: v for k, v in vars(main_parser.parse_args()).items() if v is not None}

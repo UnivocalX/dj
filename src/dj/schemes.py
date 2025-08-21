@@ -45,6 +45,10 @@ class DJConfigCLI(BaseSettingsConfig):
         default="config",
         description="Command to execute (config, load, etc.)",
     )
+    subcommand: str | None = Field(
+        default=None,
+        description="Subcommand for the main command (e.g., add, remove for tags)",
+    )
     log_dir: str | None = Field(default=None)
     verbose: bool = Field(default=False)
     plain: bool = Field(default=False, description="Disable colors and loading bar")
@@ -202,3 +206,24 @@ class ListDatasetsConfig(BaseSettingsConfig):
     @field_validator("domain")
     def clean_strings(cls, v: str) -> str:
         return clean_string(v)
+
+
+class TagsConfig(BaseSettingsConfig):
+    dataset_name: str
+    domain: str = Field(default=DEFAULT_DOMAIN)
+    tags: list[str] = Field(..., description="Tags names")
+    stage: DataStage = Field(default=DataStage.RAW)
+    sha256: list[str] | None = Field(
+        default=None, description="SHA256 hashes to filter files by"
+    )
+    filenames: list[str] | None = Field(
+        default=None, description="File names to filter files by"
+    )
+
+    @field_validator("domain", "dataset_name")
+    def clean_strings(cls, string: str) -> str:
+        return clean_string(string)
+
+    @field_validator("tags")
+    def clean_tags(cls, tags: list[str]) -> list[str]:
+        return [clean_string(tag) for tag in tags]

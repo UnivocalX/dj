@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from dj.actions.registry.models import Base, DatasetRecord, FileRecord, TagRecord
 from dj.constants import DataStage
-from dj.exceptions import DatasetExist
+from dj.exceptions import DatasetExist, FileRecordNotFound, TagNotFound
 from dj.schemes import Dataset, RegistryConfig
 from dj.utils import pretty_format, resolve_data_s3uri
 
@@ -213,7 +213,7 @@ class Journalist:
         filename: str | None = None,
         dataset_name: str | None = None,
         domain: str | None = None,
-    ) -> FileRecord | None:
+    ) -> FileRecord:
         logger.debug("Getting file record")
 
         query = self.session.query(FileRecord)
@@ -245,6 +245,10 @@ class Journalist:
                 "get_file_record requires either file_id, sha256, or (filename + dataset_name + domain)"
             )
 
+        if not file_record:
+            raise FileRecordNotFound(
+                f"File record not found for provided parameters: file_id={file_id}, sha256={sha256}, filename={filename}, dataset_name={dataset_name}, domain={domain}"
+            )
         return file_record
 
     def add_file_record(
@@ -354,11 +358,9 @@ class Journalist:
         return tag
 
     def add_tags2file(self, file_id: int, tag_names: list[str]) -> FileRecord:
-        logger.info(f"Adding {len(tag_names)} tag\\s to file ID {file_id}")
+        logger.debug(f"Adding {len(tag_names)} tag\\s to file ID {file_id}")
 
-        file_record: FileRecord | None = self.get_file_record(file_id)
-        if not file_record:
-            raise FileNotFoundError(f"File with ID {file_id} not found.")
+        file_record: FileRecord = self.get_file_record(file_id)
 
         for tag_name in tag_names:
             tag: TagRecord = self.add_tag(tag_name, commit=False)
@@ -369,15 +371,41 @@ class Journalist:
                 logger.debug(
                     f"Tag '{tag.name}' already exists on file {file_record.filename}"
                 )
+        self.session.commit()
+        return file_record
 
+    def remove_tags(self, file_id: int, tag_names: list[str]) -> FileRecord:
+        logger.debug(f"Removing {len(tag_names)} tag(s) from file ID {file_id}")
+        file_record: FileRecord = self.get_file_record(file_id)
+
+        initial_tag_count: int = len(file_record.tags)
+        tags_to_remove = [self.get_tag(tag_name) for tag_name in tag_names]
+        tags_to_remove = [tag for tag in tags_to_remove if tag is not None]
+
+        if not tags_to_remove:
+            raise TagNotFound(
+                "No valid tags provided for removal. Please check the tag names."
+            )
+
+        logger.debug(
+            f"Removing {len(tags_to_remove)} tag(s) from file {file_record.filename}"
+        )
+        for tag in tags_to_remove:
+            if tag:
+                if tag in file_record.tags:
+                    file_record.tags.remove(tag)
+                    logger.debug(f"Removed tag '{tag.name}'")
+                else:
+                    logger.debug(f"Tag '{tag.name}' not present on file")
+
+        self.session.commit()
+        logger.debug(f"Removed {initial_tag_count - len(file_record.tags)} tag(s)")
         return file_record
 
     def get_file_tags(self, file_id: int) -> list[TagRecord]:
         logger.debug(f"Getting tags for file ID: {file_id}")
 
-        file_record: FileRecord | None = self.get_file_record(file_id)
-        if not file_record:
-            raise ValueError(f"File with ID {file_id} not found.")
+        file_record: FileRecord = self.get_file_record(file_id)
 
         logger.debug(
             f"Found {len(file_record.tags)} tags for file {file_record.filename}"

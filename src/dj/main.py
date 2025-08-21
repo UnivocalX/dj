@@ -5,6 +5,7 @@ from dj.actions.config import DJManager
 from dj.actions.registry.fetch import DataFetcher
 from dj.actions.registry.journalist import Journalist
 from dj.actions.registry.load import DataLoader
+from dj.actions.registry.tags import DataTagger
 from dj.cli import parser
 from dj.constants import PROGRAM_NAME
 from dj.logging import configure_logging
@@ -16,6 +17,7 @@ from dj.schemes import (
     FetchDataConfig,
     ListDatasetsConfig,
     LoadDataConfig,
+    TagsConfig,
 )
 from dj.utils import pretty_format
 
@@ -64,3 +66,12 @@ def main() -> None:
 
             for dataset in datasets:
                 logger.info(pretty_format(dataset.model_dump(), title=dataset.name))
+
+        case "tags":
+            match dj_cli_cfg.subcommand:
+                case "add":
+                    with DataTagger(dj_cfg) as data_tagger:
+                        data_tagger.add(TagsConfig(**parsed_args))
+                case "remove":
+                    with DataTagger(dj_cfg) as data_tagger:
+                        data_tagger.remove(TagsConfig(**parsed_args))
