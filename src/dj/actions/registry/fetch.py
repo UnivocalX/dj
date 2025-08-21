@@ -121,8 +121,8 @@ class DataFetcher(BaseAction):
             pretty_format(
                 title="🔍 Filters",
                 data=fetch_cfg.model_dump(
-                    exclude=["export_format", "export", "dry", "fetch_export_filepath"]
-                ),
+                    exclude=["export_format", "export", "dry", "fetch_export_filepath"]  # type: ignore[arg-type]
+                ), 
             )
         )
 

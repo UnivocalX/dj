@@ -75,7 +75,7 @@ class DataTagger:
             file_records, disable=self.cfg.plain, desc="Adding tags"
         ):
             logger.debug(f"Adding tags to file {file_record.sha256}")
-            self.journalist.add_tags2file(file_record.id, add_cfg.tags)
+            self.journalist.add_tags2file(file_record.id, add_cfg.tags)  # type: ignore[arg-type]
 
         logger.info(f"Successfully added tags {add_cfg.tags}")
         return file_records
@@ -103,7 +103,7 @@ class DataTagger:
             file_records, disable=self.cfg.plain, desc="Removing tags"
         ):
             logger.debug(f"Removing tags from file {file_record.sha256}")
-            self.journalist.remove_tags(file_record.id, remove_cfg.tags)
+            self.journalist.remove_tags(file_record.id, remove_cfg.tags)  # type: ignore[arg-type]
 
         logger.info(f"Successfully removed tags {remove_cfg.tags}")
         return file_records
