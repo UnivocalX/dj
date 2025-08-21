@@ -82,29 +82,15 @@ class DataFetcher(BaseAction):
 
         export_data(filepath, records_dict)
 
-    def fetch(self, fetch_cfg: FetchDataConfig) -> list[FileRecord]:
-        logger.info("Starting to Fetch data.")
-        logger.info(
-            pretty_format(
-                title="🔍 Filters",
-                data=fetch_cfg.model_dump(
-                    exclude=["export_format", "export", "dry", "fetch_export_filepath"]  # type: ignore[arg-type]
-                ),
-            )
-        )
-
-        # Since domain is always present, we always need to join DatasetRecord
+    def _get_file_records(self, fetch_cfg: FetchDataConfig) -> list[FileRecord]:
         query = self.journalist.session.query(FileRecord).join(DatasetRecord)
 
-        # Apply domain filter (always present)
         logger.debug(f"filtering by domain: {fetch_cfg.domain}")
         query = query.filter(DatasetRecord.domain == fetch_cfg.domain)
 
-        # Apply stage filter (always present)
         logger.debug(f"filtering by stage: {fetch_cfg.stage}")
         query = query.filter(FileRecord.stage == fetch_cfg.stage)
 
-        # Apply optional filters
         if fetch_cfg.dataset_name:
             logger.debug(f"filtering by dataset: {fetch_cfg.dataset_name}")
             query = query.filter(DatasetRecord.name == fetch_cfg.dataset_name)
@@ -115,7 +101,7 @@ class DataFetcher(BaseAction):
 
         if fetch_cfg.sha256:
             logger.debug(f"filtering by sha256: {', '.join(fetch_cfg.sha256)}")
-            query = query.filter(FileRecord.sha256.in_(fetch_cfg.sha256))  # type: ignore[arg-type]
+            query = query.filter(FileRecord.sha256.in_(fetch_cfg.sha256))
 
         if fetch_cfg.filenames:
             logger.debug(f"filtering by file names: {', '.join(fetch_cfg.filenames)}")
@@ -127,8 +113,20 @@ class DataFetcher(BaseAction):
                 TagRecord.name.in_(fetch_cfg.tags)
             )
 
-        # Apply limit and execute query
-        file_records: list[FileRecord] = query.limit(fetch_cfg.limit).all()
+        return query.limit(fetch_cfg.limit).all()
+
+    def fetch(self, fetch_cfg: FetchDataConfig) -> list[FileRecord]:
+        logger.info("Starting to Fetch data.")
+        logger.info(
+            pretty_format(
+                title="🔍 Filters",
+                data=fetch_cfg.model_dump(
+                    exclude=["export_format", "export", "dry", "fetch_export_filepath"]  # type: ignore[arg-type]
+                ),
+            )
+        )
+
+        file_records: list[FileRecord] = self._get_file_records(fetch_cfg)
         logger.info(f"Found {len(file_records)} files.")
 
         # Output results
