@@ -1,5 +1,5 @@
-name: Python App CI
-run-name: "CI Run #${{ github.run_id }} on ${{ github.ref_name }} triggered by ${{ github.event_name }} | Commit: ${{ github.event.head_commit.message }}"
+name: Python App Release
+run-name: "Run #${{ github.run_id }} on ${{ github.ref_name }} triggered by ${{ github.event_name }} | Commit: ${{ github.event.head_commit.message }}"
 
 on:
   push:
@@ -16,7 +16,7 @@ on:
       - ".github/workflows/**"
 
 jobs:
-  continuous-integration:
+  test:
     name: Continuous Integration
     runs-on: ubuntu-latest
 
@@ -78,19 +78,14 @@ jobs:
         run: |
           if [[ "${{ github.ref_name }}" == "main" ]]; then
             echo "Running on main branch - extracting branch name from commit"
-            
             COMMIT_MSG=$(git log -1 --pretty=%B)
             echo "Commit message: $COMMIT_MSG"
-            
-            # Try multiple patterns to extract branch name
             BRANCH_NAME=$(echo "$COMMIT_MSG" | grep -oE "from [^/[:space:]]+/[^[:space:]]+" | cut -d' ' -f2 | head -1)
             if [[ -z "$BRANCH_NAME" ]]; then
               BRANCH_NAME=$(echo "$COMMIT_MSG" | grep -oE "branch '[^']+'" | sed "s/branch '\(.*\)'/\1/" | head -1)
             fi
-            
             if [[ -n "$BRANCH_NAME" ]]; then
               echo "Detected branch: $BRANCH_NAME"
-              
               if [[ "$BRANCH_NAME" == major/* ]]; then
                 echo "Major branch detected - bumping major version"
                 poetry version major
@@ -142,3 +137,48 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
           pull-request-number: ${{ steps.create-pr.outputs.pull-request-number }}
           merge-method: SQUASH
+
+  build:
+    runs-on: ubuntu-latest
+    needs: continuous-integration
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+
+      - name: Install Poetry
+        run: |
+          python -m pip install --upgrade pip
+          pip install poetry
+
+      - name: Build release distributions with Poetry
+        run: |
+          poetry install --no-root
+          poetry build
+
+      - name: Upload release dists
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-dists
+          path: dist/
+
+  publish:
+    runs-on: ubuntu-latest
+    needs: build
+    permissions:
+      id-token: write
+
+    steps:
+      - name: Retrieve release distributions
+        uses: actions/download-artifact@v4
+        with:
+          name: release-dists
+          path: dist/
+
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          packages-dir: dist/
