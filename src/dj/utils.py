@@ -132,31 +132,29 @@ def clean_string(
 
 
 def collect_files(
-    directory: str, filters: Iterable[str] | None = None, recursive: bool = False
+    pattern: str, filters: Iterable[str] | None = None, recursive: bool = False
 ) -> set[str]:
     filepaths: set[str] = set()
-    directory = os.path.abspath(directory)
+    abs_pattern: str = os.path.abspath(pattern)
 
-    logger.debug(f'Collecting files from: "{directory}"')
+    # If pattern is a file, just return it
+    if os.path.isfile(abs_pattern):
+        filepaths.add(abs_pattern)
+        return filepaths
+
+    logger.debug(f'Collecting files from pattern: "{pattern}"')
+    matches = glob(pattern, recursive=recursive)
+    for match in matches:
+        full_path = os.path.abspath(match)
+        if os.path.isfile(full_path):
+            filepaths.add(full_path)
+
     if filters:
         filters = set(filters)
         logger.debug(f"Extensions: {', '.join(filters)}")
-        for ext in filters:
-            pattern = f"**/*.{ext}" if recursive else f"*.{ext}"
-            matches = glob(pattern, root_dir=directory, recursive=recursive)
-            for match in matches:
-                full_path = os.path.join(directory, match)
-                if os.path.isfile(full_path):
-                    filepaths.add(full_path)
-    else:
-        pattern = "**/*" if recursive else "*"
-        matches = glob(pattern, root_dir=directory, recursive=recursive)
-        for match in matches:
-            full_path = os.path.join(directory, match)
-            if os.path.isfile(full_path):
-                filepaths.add(full_path)
+        filepaths = {f for f in filepaths if any(f.endswith(ext) for ext in filters)}
 
-    logger.debug(f"Collected {len(filepaths)} file\\s")
+    logger.debug(f"Collected {len(filepaths)} file(s)")
     return filepaths
 
 

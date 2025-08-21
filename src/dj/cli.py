@@ -76,7 +76,9 @@ def parser(prog_name: str) -> dict:
         "load", help="load data into dj registry."
     )
     load_parser.add_argument(
-        "data_src", type=str, help="Source of data files (local or S3)"
+        "data_src",
+        type=str,
+        help="Source of data files (local or S3), local support glob patterns, S3 support filters.",
     )
     load_parser.add_argument("dataset_name", type=str, help="Name of the dataset")
     load_parser.add_argument("--domain", type=str, help="Domain of the dataset")
@@ -85,7 +87,11 @@ def parser(prog_name: str) -> dict:
         choices=[stage.value for stage in DataStage],
         help="Data stage",
     )
-    load_parser.add_argument("--filters", nargs="+", help="Filters for data files")
+    load_parser.add_argument(
+        "--filters",
+        nargs="+",
+        help="Filter files by extension. will overwrite glob patterns.",
+    )
     load_parser.add_argument(
         "--exists-ok",
         action="store_const",

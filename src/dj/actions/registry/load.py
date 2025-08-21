@@ -18,7 +18,6 @@ class DataLoader(BaseAction):
         logger.info(f"attempting to gather data, filters: {filters}")
         if data_src.startswith("s3://"):
             logger.info("gathering data from S3")
-
             s3objcets: list[str] = self.storage.list_objects(
                 data_src,
                 filters,
@@ -28,7 +27,7 @@ class DataLoader(BaseAction):
                 datafiles.add(merge_s3uri(data_src, s3obj))
         else:
             logger.info("gathering data from local storage")
-            datafiles = collect_files(data_src, filters)
+            datafiles = collect_files(data_src, filters, recursive=True)
 
         logger.info(f"Gathered {len(datafiles)} file\\s")
         return datafiles
