@@ -142,7 +142,7 @@ def collect_files(
         filepaths.add(abs_pattern)
         return filepaths
 
-    logger.debug(f'Collecting files from pattern: "{pattern}"')
+    logger.debug(f'Collecting files, pattern: "{pattern}"')
     matches = glob(pattern, recursive=recursive)
     for match in matches:
         full_path = os.path.abspath(match)
