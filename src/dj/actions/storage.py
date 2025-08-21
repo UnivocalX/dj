@@ -16,8 +16,8 @@ logger: Logger = getLogger(__name__)
 class Storage:
     def __init__(self, cfg: StorageConfig | None = None):
         self.cfg: StorageConfig = cfg or StorageConfig()
-        logger.info(f'Storage endpoint: {self.cfg.s3endpoint or "default"}')
-        
+        logger.info(f"Storage endpoint: {self.cfg.s3endpoint or 'default'}")
+
     @property
     def client(self) -> client:
         client_config: BotoConfig = BotoConfig(
