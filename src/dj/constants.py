@@ -9,6 +9,7 @@ class DataStage(str, Enum):
 
 
 PROGRAM_NAME: str = "dj"
+DISTRO_NAME: str = "univocalx-dj"
 DJCFG_FILENAME: str = "config.yaml"
 ASSETS_DIRECTORY: str = "assets"
 FETCH_FILENAME: str = "fetch"

@@ -4,13 +4,14 @@ from logging import Logger, getLogger
 from typing import TypeVar
 
 from sqlalchemy import Engine, create_engine
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, sessionmaker
 
 from dj.actions.registry.models import Base, DatasetRecord, FileRecord, TagRecord
 from dj.constants import DataStage
-from dj.exceptions import DatasetExist, FileRecordNotFound, TagNotFound
+from dj.exceptions import DatasetExist, FileRecordExist, FileRecordNotFound, TagNotFound
 from dj.schemes import Dataset, RegistryConfig
-from dj.utils import pretty_format, resolve_data_s3uri
+from dj.utils import resolve_data_s3uri
 
 T = TypeVar("T")
 logger: Logger = getLogger(__name__)
@@ -19,7 +20,7 @@ logger: Logger = getLogger(__name__)
 class Journalist:
     def __init__(self, cfg: RegistryConfig):
         self.cfg: RegistryConfig = cfg
-        logger.info(
+        logger.debug(
             f"Initializing Journalist with registry endpoint: {self.cfg.registry_endpoint}"
         )
 
@@ -122,37 +123,31 @@ class Journalist:
         domain: str,
         name: str,
         description: str | None = None,
+        exists_ok: bool = True,
     ) -> DatasetRecord:
-        logger.info(f"Creating new dataset: {name}")
+        logger.debug(f"Creating new dataset: {name}")
         dataset: DatasetRecord = DatasetRecord(
             domain=domain, name=name, description=description
         )
         self.session.add(dataset)
-        self.session.commit()
-        logger.debug(f"Successfully created dataset '{name}' with ID: {dataset.id}")
-        return dataset
 
-    def add_dataset(
-        self,
-        domain: str,
-        name: str,
-        description: str | None = None,
-        exists_ok: bool = True,
-    ) -> DatasetRecord:
-        logger.info(f"Adding files to dataset: {domain}/{name}")
+        try:
+            self.session.commit()
+            logger.debug(f"Successfully created dataset '{name}' with ID: {dataset.id}")
+        except IntegrityError as e:
+            logger.debug(f"Dataset '{name}' already exists", exc_info=e)
+            logger.debug(f"exists_ok={exists_ok}")
+            logger.debug("rolling back")
+            self.session.rollback()
 
-        # Check if dataset exists
-        logger.debug(f"Checking if dataset '{name}' already exists")
-        dataset: DatasetRecord | None = self.get_dataset(domain=domain, name=name)
+            if "unique_dataset" in str(e):
+                if not exists_ok:
+                    raise DatasetExist(f"Dataset '{name}' already exists.")
 
-        if not dataset:
-            dataset = self.create_dataset(
-                domain=domain,
-                name=name,
-                description=description,
-            )
-        elif dataset and not exists_ok:
-            raise DatasetExist(f"Dataset '{name}' already exists (ID: {dataset.id})")
+                dataset = self.get_dataset(domain, name)
+                logger.debug(f"Using existing dataset '{name}' with ID: {dataset.id}")
+            else:
+                raise
 
         return dataset
 
@@ -182,7 +177,7 @@ class Journalist:
 
         datasets: list[DatasetRecord] = query.all()
 
-        logger.info(f"Found {len(datasets)} datasets matching filters")
+        logger.debug(f"Found {len(datasets)} dataset(s) matching filters")
         result: list[Dataset] = []
         for dataset in datasets:
             file_count = (
@@ -206,52 +201,46 @@ class Journalist:
         return result
 
     # File methods
-    def get_file_record(
+    def get_file_record_by_id(self, file_id: int) -> FileRecord:
+        logger.debug(f"Getting file record by ID: {file_id}")
+        file_record: FileRecord = (
+            self.session.query(FileRecord).filter(FileRecord.id == file_id).first()
+        )
+
+        if not file_record:
+            raise FileRecordNotFound(f"File record not found for file_id: {file_id}")
+
+        return file_record
+
+    def get_file_record_by_sha256(
         self,
-        file_id: int | None = None,
-        sha256: str | None = None,
-        filename: str | None = None,
-        dataset_name: str | None = None,
-        domain: str | None = None,
+        domain: str,
+        dataset_name: str,
+        sha256: str,
     ) -> FileRecord:
-        logger.debug("Getting file record")
+        logger.debug(
+            f"Searching by sha256: {sha256} in dataset {dataset_name}/{domain}"
+        )
 
-        query = self.session.query(FileRecord)
-        file_record: FileRecord | None = None
-        if file_id:
-            logger.debug(f"Searching by file_id: {file_id}")
-            file_record = query.filter(FileRecord.id == file_id).first()
-
-        elif sha256:
-            logger.debug(f"Searching by sha256: {sha256}")
-            file_record = query.filter(FileRecord.sha256 == sha256).first()
-
-        elif filename and dataset_name and domain:
-            logger.debug(
-                f"Searching by filename: {filename} in dataset {dataset_name}/{domain}"
+        file_record: FileRecord = (
+            self.session.query(FileRecord)
+            .join(DatasetRecord)
+            .filter(
+                FileRecord.sha256 == sha256,
+                DatasetRecord.name == dataset_name,
+                DatasetRecord.domain == domain,
             )
-            file_record = (
-                query.join(DatasetRecord)
-                .filter(
-                    FileRecord.filename == filename,
-                    DatasetRecord.name == dataset_name,
-                    DatasetRecord.domain == domain,
-                )
-                .first()
-            )
-
-        else:
-            raise ValueError(
-                "get_file_record requires either file_id, sha256, or (filename + dataset_name + domain)"
-            )
+            .first()
+        )
 
         if not file_record:
             raise FileRecordNotFound(
-                f"File record not found for provided parameters: file_id={file_id}, sha256={sha256}, filename={filename}, dataset_name={dataset_name}, domain={domain}"
+                f"File record not found for sha256: {sha256} in dataset {dataset_name}/{domain}"
             )
+
         return file_record
 
-    def add_file_record(
+    def create_file_record(
         self,
         dataset: DatasetRecord,
         s3bucket: str,
@@ -263,17 +252,15 @@ class Journalist:
         stage: DataStage = DataStage.RAW,
         tags: list[str] | None = None,
     ) -> FileRecord:
-        logger.info(f"Adding file record {filename}")
+        formatted_dataset_name: str = f"{dataset.name}/{dataset.domain}"
+        logger.debug(f"Adding file record {filename} to {formatted_dataset_name}")
 
-        # Handle tags
         tags_records: list[TagRecord] = []
         if tags:
-            logger.debug(f"Processing {len(tags)} tags")
             for tag_name in tags:
                 tags_records.append(self.add_tag(tag_name.strip(), commit=False))
 
-        # Create S3 URI
-        s3uri = resolve_data_s3uri(
+        s3uri: str = resolve_data_s3uri(
             s3bucket=s3bucket,
             s3prefix=s3prefix,
             stage=stage.value,
@@ -282,7 +269,6 @@ class Journalist:
             ext=os.path.splitext(filename)[1],
         )
 
-        logger.debug("Creating FileRecord object")
         datafile: FileRecord = FileRecord(
             dataset_id=dataset.id,
             s3uri=s3uri,
@@ -297,30 +283,23 @@ class Journalist:
         datafile.dataset = dataset
 
         if tags_records:
-            logger.debug("creating file&tags relationship")
             datafile.tags = tags_records
 
-        logger.debug(
-            pretty_format(
-                {
-                    "dataset_id": dataset.id,
-                    "s3uri": s3uri,
-                    "s3bucket": s3bucket,
-                    "s3prefix": s3prefix,
-                    "filename": filename,
-                    "sha256": sha256,
-                    "mime_type": mime_type,
-                    "size_bytes": size_bytes,
-                    "stage": stage.value if hasattr(stage, "value") else str(stage),
-                    "tags": [tag.name for tag in datafile.tags]
-                    if datafile.tags
-                    else [],
-                },
-                title="New File Record",
-            )
-        )
-
         self.session.add(datafile)
+        try:
+            self.session.flush()  # Try to write to DB, but don't commit yet
+        except IntegrityError as e:
+            self.session.rollback()
+            if "unique_data_file" in str(e):
+                logger.debug(
+                    f"File record already exists in {formatted_dataset_name}",
+                    exc_info=e,
+                )
+                raise FileRecordExist(
+                    f'File record "{filename}" ({sha256}) already exists in "{formatted_dataset_name}".'
+                ) from e
+            raise
+
         return datafile
 
     def _normalize_tag_name(self, tag_name: str) -> str:
@@ -342,7 +321,7 @@ class Journalist:
         tag: TagRecord = TagRecord(name=normalized_name)
         self.session.add(tag)
         if commit:
-            logger.info(f'Committing tag "{tag.name}"')
+            logger.debug(f'Committing tag "{tag.name}"')
             self.session.commit()
         return tag
 
@@ -359,8 +338,7 @@ class Journalist:
 
     def add_tags2file(self, file_id: int, tag_names: list[str]) -> FileRecord:
         logger.debug(f"Adding {len(tag_names)} tag\\s to file ID {file_id}")
-
-        file_record: FileRecord = self.get_file_record(file_id)
+        file_record: FileRecord = self.get_file_record_by_id(file_id)
 
         for tag_name in tag_names:
             tag: TagRecord = self.add_tag(tag_name, commit=False)
@@ -376,7 +354,7 @@ class Journalist:
 
     def remove_tags(self, file_id: int, tag_names: list[str]) -> FileRecord:
         logger.debug(f"Removing {len(tag_names)} tag(s) from file ID {file_id}")
-        file_record: FileRecord = self.get_file_record(file_id)
+        file_record: FileRecord = self.get_file_record_by_id(file_id)
 
         initial_tag_count: int = len(file_record.tags)
         tags_to_remove = [self.get_tag(tag_name) for tag_name in tag_names]
@@ -401,16 +379,6 @@ class Journalist:
         self.session.commit()
         logger.debug(f"Removed {initial_tag_count - len(file_record.tags)} tag(s)")
         return file_record
-
-    def get_file_tags(self, file_id: int) -> list[TagRecord]:
-        logger.debug(f"Getting tags for file ID: {file_id}")
-
-        file_record: FileRecord = self.get_file_record(file_id)
-
-        logger.debug(
-            f"Found {len(file_record.tags)} tags for file {file_record.filename}"
-        )
-        return file_record.tags
 
     def file_record2dict(
         self,

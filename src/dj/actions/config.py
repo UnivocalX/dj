@@ -24,7 +24,7 @@ class DJManager:
     def cfg(self) -> DJConfig:
         # Load config from file if exists
         dict_cfg: dict = {}
-        logger.info(f"Loading configuration from {self.cfg_filepath}")
+        logger.info(f'Loading configuration from "{self.cfg_filepath}"\n')
         if os.path.isfile(self.cfg_filepath):
             with open(self.cfg_filepath, "r") as file:
                 dict_cfg = yaml.safe_load(file) or {}

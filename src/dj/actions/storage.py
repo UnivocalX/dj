@@ -16,7 +16,7 @@ logger: Logger = getLogger(__name__)
 class Storage:
     def __init__(self, cfg: StorageConfig | None = None):
         self.cfg: StorageConfig = cfg or StorageConfig()
-        logger.info(f"Storage endpoint: {self.cfg.s3endpoint or 'default'}")
+        logger.debug(f"Storage endpoint: {self.cfg.s3endpoint or 'default'}")
 
     @property
     def client(self) -> client:
@@ -69,8 +69,8 @@ class Storage:
         s3prefix = s3prefix if s3prefix.endswith("/") else s3prefix + "/"
 
         formatted_extensions: str = "All" if not extensions else ", ".join(extensions)
-        logger.info(f'starting to search for files in: "{s3prefix}"')
-        logger.info(f"allowed extensions: {formatted_extensions}")
+        logger.debug(f'starting to search for files in: "{s3prefix}"')
+        logger.debug(f"allowed extensions: {formatted_extensions}")
 
         page_iterator = self.client.get_paginator("list_objects_v2").paginate(
             Bucket=s3bucket, Prefix=s3prefix
@@ -87,7 +87,7 @@ class Storage:
                 if not extensions or object_name.lower().endswith(tuple(extensions)):
                     found_objects.append(object_name)
 
-        logger.info(f"found {len(found_objects)} file\\s")
+        logger.debug(f"found {len(found_objects)} file\\s")
         return found_objects
 
     def copy_object(self, src_s3uri: str, dst_s3uri: str) -> None:

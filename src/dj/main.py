@@ -1,16 +1,20 @@
 #!python3.12
 from logging import Logger, getLogger
+from sys import exit as sys_exit
 
 from dj.actions.config import DJManager
+from dj.actions.registry.create import DatasetCreator
 from dj.actions.registry.fetch import DataFetcher
 from dj.actions.registry.journalist import Journalist
 from dj.actions.registry.load import DataLoader
 from dj.actions.registry.tags import DataTagger
 from dj.cli import parser
 from dj.constants import PROGRAM_NAME
+from dj.exceptions import DatasetExist, FailedToGatherFiles
 from dj.logging import configure_logging
 from dj.schemes import (
     ConfigureDJConfig,
+    CreateDatasetConfig,
     Dataset,
     DJConfig,
     DJConfigCLI,
@@ -45,9 +49,21 @@ def main() -> None:
         case "config":
             dj_manager.configure(ConfigureDJConfig(**parsed_args))
 
+        case "create":
+            try: 
+                with DatasetCreator(dj_cfg) as dataset_creator:
+                    dataset_creator.create(CreateDatasetConfig(**parsed_args))
+            except DatasetExist as e:
+                logger.error(e)
+                sys_exit(1)
+
         case "load":
-            with DataLoader(dj_cfg) as data_loader:
-                data_loader.load(LoadDataConfig(**parsed_args))
+            try: 
+                with DataLoader(dj_cfg) as data_loader:
+                    data_loader.load(LoadDataConfig(**parsed_args))
+            except (DatasetExist, FailedToGatherFiles) as e:
+                logger.error(e)
+                sys_exit(1)
 
         case "fetch":
             with DataFetcher(dj_cfg) as data_fetcher:

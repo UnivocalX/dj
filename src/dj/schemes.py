@@ -117,7 +117,7 @@ class ConfigureDJConfig(BaseSettingsConfig):
 
 
 class LoadDataConfig(BaseSettingsConfig):
-    data_src: str
+    paths: list[str]
     dataset_name: str
     domain: str = Field(default=DEFAULT_DOMAIN)
     description: str | None = Field(default=None)
@@ -137,11 +137,15 @@ class LoadDataConfig(BaseSettingsConfig):
 
         return tags
 
-    @field_validator("data_src")
-    def abs_path(cls, v: str) -> str:
-        if os.path.exists(v):
-            return os.path.abspath(v)
-        return v
+    @field_validator("paths")
+    def abs_path(cls, paths: str) -> str:
+        abs_paths: list[str] = []
+        for path in paths:
+            if os.path.exists(path):
+                abs_paths.append(os.path.abspath(path))
+            else:
+                abs_paths.append(path)
+        return abs_paths
 
 
 class FetchDataConfig(BaseSettingsConfig):
@@ -180,23 +184,6 @@ class FetchDataConfig(BaseSettingsConfig):
         return os.path.join(self.directory, f"{FETCH_FILENAME}.{self.export_format}")
 
 
-class FileMetadata(BaseModel):
-    filepath: Path
-    size_bytes: int = Field(..., description="size in bytes")
-    sha256: str = Field(..., description="Cryptographic hash")
-    mime_type: str
-
-    @computed_field  # type: ignore[misc]
-    @cached_property
-    def size_human(self) -> str:
-        return format_file_size(self.size_bytes)
-
-    @computed_field  # type: ignore[misc]
-    @cached_property
-    def filename(self) -> str:
-        return os.path.basename(self.filepath)
-
-
 class ListDatasetsConfig(BaseSettingsConfig):
     domain: str = Field(default=DEFAULT_DOMAIN)
     name_pattern: str | None = Field(default=None)
@@ -227,3 +214,34 @@ class TagsConfig(BaseSettingsConfig):
     @field_validator("tags")
     def clean_tags(cls, tags: list[str]) -> list[str]:
         return [clean_string(tag) for tag in tags]
+
+
+class CreateDatasetConfig(BaseSettingsConfig):
+    name: str
+    domain: str = Field(default=DEFAULT_DOMAIN)
+    description: str | None = Field(default=None)
+    config_filepaths: list[Path] | None = Field(
+        default=None, description="YAML/JSON file(s) with data relation configuration"
+    )
+    exists_ok: bool = Field(default=False)
+
+    @field_validator("domain", "name")
+    def clean_strings(cls, string: str) -> str:
+        return clean_string(string)
+
+
+class FileMetadata(BaseModel):
+    filepath: Path
+    size_bytes: int = Field(..., description="size in bytes")
+    sha256: str = Field(..., description="Cryptographic hash")
+    mime_type: str
+
+    @computed_field  # type: ignore[misc]
+    @cached_property
+    def size_human(self) -> str:
+        return format_file_size(self.size_bytes)
+
+    @computed_field  # type: ignore[misc]
+    @cached_property
+    def filename(self) -> str:
+        return os.path.basename(self.filepath)

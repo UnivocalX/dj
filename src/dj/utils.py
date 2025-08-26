@@ -142,6 +142,13 @@ def collect_files(
         filepaths.add(abs_pattern)
         return filepaths
 
+    # If pattern is a directory, we need to add wildcards for glob to work
+    if os.path.isdir(abs_pattern):
+        if recursive:
+            pattern = os.path.join(pattern, "**", "*")
+        else:
+            pattern = os.path.join(pattern, "*")
+
     logger.debug(f'Collecting files, pattern: "{pattern}"')
     matches = glob(pattern, recursive=recursive)
     for match in matches:

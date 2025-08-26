@@ -2,7 +2,7 @@ from argparse import ArgumentParser
 from importlib.metadata import version
 from logging import Logger, getLogger
 
-from dj.constants import EXPORT_FORMATS, DataStage
+from dj.constants import DISTRO_NAME, EXPORT_FORMATS, DataStage
 
 logger: Logger = getLogger(__name__)
 
@@ -12,7 +12,7 @@ def parser(prog_name: str) -> dict:
 
     # Global flags
     main_parser.add_argument(
-        "--version", action="version", version=f"%(prog)s {version(prog_name)}"
+        "--version", action="version", version=f"%(prog)s {version(DISTRO_NAME)}"
     )
     main_parser.add_argument("--s3prefix", type=str, help="S3 prefix for data storage")
     main_parser.add_argument("--s3bucket", type=str, help="S3 bucket for data storage")
@@ -76,9 +76,9 @@ def parser(prog_name: str) -> dict:
         "load", help="load data into dj registry."
     )
     load_parser.add_argument(
-        "data_src",
-        type=str,
-        help="Source of data files (local or S3), local support glob patterns, S3 support filters.",
+        "paths",
+        nargs="+",
+        help="Source of data files (local or S3), S3 support filters.",
     )
     load_parser.add_argument("dataset_name", type=str, help="Name of the dataset")
     load_parser.add_argument("--domain", type=str, help="Domain of the dataset")
@@ -171,6 +171,25 @@ def parser(prog_name: str) -> dict:
         "--offset", type=int, help="Offset for pagination of datasets"
     )
 
+    # Create
+    create_parser: ArgumentParser = sub_parsers.add_parser(
+        "create", help="create a new dj dataset."
+    )
+    create_parser.add_argument("name", type=str, help="Name of the dataset")
+    create_parser.add_argument("--domain", type=str, help="Domain of the dataset")
+    create_parser.add_argument(
+        "--description", type=str, help="Description of the dataset"
+    )
+    create_parser.add_argument(
+        "--config",dest="config_filepaths", nargs="+", help="File paths to config files"
+    )
+    create_parser.add_argument(
+        "--exists-ok",
+        action="store_const",
+        const=True,
+        help="Allow creating if dataset already exists",
+    )
+    
     # Tags
     tags_parser: ArgumentParser = sub_parsers.add_parser(
         "tags", help="manage dataset tags."
