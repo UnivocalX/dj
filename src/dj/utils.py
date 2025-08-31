@@ -259,7 +259,7 @@ def resolve_data_s3uri(
     return s3uri
 
 
-def export_data(filepath: str, data: dict[str, Any]) -> None:
+def export_data(filepath: str, data: Any) -> None:
     format: str = os.path.splitext(filepath)[1].lower()
     abs_filepath: str = os.path.abspath(filepath)
 
@@ -269,7 +269,7 @@ def export_data(filepath: str, data: dict[str, Any]) -> None:
         if format == ".json":
             json.dump(data, export_file, indent=4)
         elif format == ".yaml" or format == ".yml":
-            yaml.dump(data, export_file, default_flow_style=False, indent=4)
+            yaml.dump(data, export_file, indent=4)
         else:
             raise ValueError(
                 f"Unsupported file format: {format}. Supported formats: .json, .yaml, .yml, .csv"
@@ -279,3 +279,15 @@ def export_data(filepath: str, data: dict[str, Any]) -> None:
 def delay(seconds: int | None = None) -> None:
     logger.debug(f"Delaying for {seconds} seconds...")
     sleep(seconds or DEFAULT_DELAY)
+
+
+def generate_unique_filepath(filepath: str) -> str:
+    counter: int = 0
+    unique_path: str = filepath
+
+    while os.path.exists(unique_path):
+        counter += 1
+        base, extension = os.path.splitext(filepath)
+        unique_path = f"{base} ({counter}){extension}"
+
+    return unique_path

@@ -57,6 +57,7 @@ class DataLoader(BaseAction):
                     datafile_record = self.journalist.get_file_record_by_sha256(
                         domain=dataset.domain,  # type: ignore[arg-type]
                         dataset_name=dataset.name,  # type: ignore[arg-type]
+                        stage=load_cfg.stage,
                         sha256=metadata.sha256,
                     )  # type: ignore[arg-type]
                     logger.warning(e)
@@ -65,7 +66,7 @@ class DataLoader(BaseAction):
             return datafile_record
 
     def load(self, load_cfg: LoadDataConfig) -> None:
-        logger.info(f'Starting to load "{len(load_cfg.paths)}" file(s).')
+        logger.info("Starting to load files.")
         datafiles: set[str] = self._gather_datafiles(load_cfg.paths, load_cfg.filters)
         if not datafiles:
             raise FailedToGatherFiles(

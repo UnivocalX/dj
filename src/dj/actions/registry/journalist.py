@@ -56,10 +56,6 @@ class Journalist:
             )
         self.close()
 
-    def close(self) -> None:
-        logger.debug("Closing database session")
-        self.session.close()
-
     def _create_engine(self) -> Engine:
         logger.debug(f"Creating database engine for: {self.cfg.registry_endpoint}")
 
@@ -94,6 +90,10 @@ class Journalist:
         logger.debug("Database engine created successfully")
         return engine
 
+    def close(self) -> None:
+        logger.debug("Closing database session")
+        self.session.close()
+
     @contextmanager
     def transaction(self):
         logger.debug("Starting database transaction")
@@ -119,39 +119,42 @@ class Journalist:
         )
 
     def create_dataset(
-            self,
-            domain: str,
-            name: str,
-            description: str | None = None,
-            exists_ok: bool = True,
-        ) -> DatasetRecord:
-            logger.debug(f"Creating new dataset: {name}")
-            dataset: DatasetRecord = DatasetRecord(
-                domain=domain, name=name, description=description
-            )
-            self.session.add(dataset)
+        self,
+        domain: str,
+        name: str,
+        description: str | None = None,
+        exists_ok: bool = True,
+    ) -> DatasetRecord:
+        logger.debug(f"Creating new dataset: {name}")
+        dataset: DatasetRecord = DatasetRecord(
+            domain=domain, name=name, description=description
+        )
+        self.session.add(dataset)
 
-            try:
-                self.session.commit()
-                logger.debug(f"Successfully created dataset '{name}' with ID: {dataset.id}")
-            except IntegrityError as e:
-                logger.debug(f"Dataset '{name}' already exists", exc_info=e)
-                logger.debug(f"exists_ok={exists_ok}")
-                logger.debug("rolling back")
-                self.session.rollback()
+        try:
+            self.session.commit()
+            logger.debug(f"Successfully created dataset '{name}' with ID: {dataset.id}")
+        except IntegrityError as e:
+            logger.debug(f"Dataset '{name}' already exists", exc_info=e)
+            logger.debug(f"exists_ok={exists_ok}")
+            logger.debug("rolling back")
+            self.session.rollback()
 
-                if "unique_dataset" in str(e):
-                    if not exists_ok:
-                        raise DatasetExist(f"Dataset '{name}' already exists.")
+            if (
+                "unique_dataset"
+                or "UNIQUE constraint failed: datasets.name, datasets.domain" in str(e)
+            ):
+                if not exists_ok:
+                    raise DatasetExist(f"Dataset '{name}' already exists.")
 
-                    existing_dataset = self.get_dataset(domain, name)
-                    assert existing_dataset is not None, f"Dataset '{name}' should exist"
-                    dataset = existing_dataset
-                    logger.debug(f"Using existing dataset '{name}' with ID: {dataset.id}")
-                else:
-                    raise
+                existing_dataset = self.get_dataset(domain, name)
+                assert existing_dataset is not None, f"Dataset '{name}' should exist"
+                dataset = existing_dataset
+                logger.debug(f"Using existing dataset '{name}' with ID: {dataset.id}")
+            else:
+                raise
 
-            return dataset
+        return dataset
 
     def list_datasets(
         self,
@@ -218,6 +221,7 @@ class Journalist:
         self,
         domain: str,
         dataset_name: str,
+        stage: DataStage,
         sha256: str,
     ) -> FileRecord:
         logger.debug(
@@ -229,6 +233,7 @@ class Journalist:
             .join(DatasetRecord)
             .filter(
                 FileRecord.sha256 == sha256,
+                FileRecord.stage == stage,
                 DatasetRecord.name == dataset_name,
                 DatasetRecord.domain == domain,
             )
@@ -237,7 +242,7 @@ class Journalist:
 
         if not file_record:
             raise FileRecordNotFound(
-                f"File record not found for sha256: {sha256} in dataset {dataset_name}/{domain}"
+                f"File record not found for sha256: {sha256} in dataset {domain}/{dataset_name}"
             )
 
         return file_record
@@ -292,7 +297,11 @@ class Journalist:
             self.session.flush()  # Try to write to DB, but don't commit yet
         except IntegrityError as e:
             self.session.rollback()
-            if "unique_data_file" in str(e):
+            if (
+                "unique_data_file"
+                or "UNIQUE constraint failed: files.dataset_id, files.s3bucket, files.s3prefix, files.stage, files.sha256"
+                in str(e)
+            ):
                 logger.debug(
                     f"File record already exists in {formatted_dataset_name}",
                     exc_info=e,
@@ -408,7 +417,7 @@ class Journalist:
             data["dataset"] = {
                 "id": file_record.dataset.id,
                 "name": file_record.dataset.name,
-                # Add other dataset fields as needed
+                "domain": file_record.dataset.domain,
             }
         if "tags" not in exclude_fields and file_record.tags:
             data["tags"] = [

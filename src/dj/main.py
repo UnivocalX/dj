@@ -71,7 +71,7 @@ def main() -> None:
 
             for dataset in datasets:
                 logger.info(pretty_format(dataset.model_dump(), title=dataset.name))
-                
+
         case "load":
             try:
                 with DataLoader(dj_cfg) as data_loader:

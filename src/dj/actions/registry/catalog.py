@@ -27,18 +27,12 @@ class DataCatalog(BaseAction):
         return unique_records
 
     def _get_local_filepath(
-        self, file_record: FileRecord, directory: str, flat: bool
+        self, directory: str, filename: str, mime: str | None = None
     ) -> str:
-        if flat:
-            local_filepath: str = os.path.join(
-                directory, os.path.basename(file_record.s3uri)
-            )
-        else:
-            local_filepath = os.path.join(
-                os.path.join(directory, file_record.mime_type),
-                os.path.basename(file_record.s3uri),
-            )
+        if mime:
+            directory = os.path.join(directory, mime)
 
+        local_filepath: str = os.path.join(directory, filename)
         return local_filepath
 
     def _download_records(
@@ -54,7 +48,11 @@ class DataCatalog(BaseAction):
         for file_record in pretty_bar(
             unique_records, disable=self.cfg.plain, desc="⬇️   Downloading", unit="file"
         ):
-            local_filepath: str = self._get_local_filepath(file_record, directory, flat)
+            local_filepath: str = self._get_local_filepath(
+                directory,
+                os.path.basename(file_record.s3uri),
+                file_record.mime_type if not flat else None,  # type: ignore[arg-type]
+            )
             self.storage.download_obj(
                 file_record.s3uri,  # type: ignore[arg-type]
                 local_filepath,
@@ -111,15 +109,17 @@ class DataCatalog(BaseAction):
         if file_records and not cfg.dry:
             self._download_records(file_records, cfg.directory, cfg.overwrite, cfg.flat)
 
-    def export(self, cfg: ExportDataConfig) -> None:
+    def export(self, cfg: ExportDataConfig) -> list[dict]:
         logger.info(f"Exporting file records -> {cfg.filepath}")
         file_records: list[FileRecord] = self.search(
             SearchDataConfig(**cfg.model_dump())
         )
 
-        records_dict: dict = {}
+        records: list = []
         for record in file_records:
             record_dict: dict = self.journalist.file_record2dict(record)
-            records_dict[record_dict["sha256"]] = record_dict
+            records.append(record_dict)
 
-        export_data(cfg.filepath, records_dict)
+        export_data(cfg.filepath, records)
+
+        return records
