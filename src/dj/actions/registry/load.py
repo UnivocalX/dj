@@ -55,8 +55,8 @@ class DataLoader(BaseAction):
                     )
                 except FileRecordExist as e:
                     datafile_record = self.journalist.get_file_record_by_sha256(
-                        domain=dataset.domain,
-                        dataset_name=dataset.name,
+                        domain=dataset.domain,  # type: ignore[arg-type]
+                        dataset_name=dataset.name,  # type: ignore[arg-type]
                         sha256=metadata.sha256,
                     )  # type: ignore[arg-type]
                     logger.warning(e)
@@ -86,6 +86,4 @@ class DataLoader(BaseAction):
         for datafile in pretty_bar(
             datafiles, disable=self.cfg.plain, desc="☁️   Loading", unit="file"
         ):
-            self._load_datafile(
-                load_cfg, dataset_record, datafile
-            )
+            self._load_datafile(load_cfg, dataset_record, datafile)

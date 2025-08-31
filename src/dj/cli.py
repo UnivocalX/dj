@@ -127,21 +127,10 @@ def parser(prog_name: str) -> dict:
     fetch_parser.add_argument("--sha256", nargs="+", help="SHA256 hashes to filter by")
     fetch_parser.add_argument("--filenames", nargs="+", help="File names to filter by")
     fetch_parser.add_argument(
-        "--export-format",
-        choices=EXPORT_FORMATS,
-        help="Format for exporting fetched data",
-    )
-    fetch_parser.add_argument(
         "--dry",
         action="store_const",
         const=True,
         help="Dry run, do not actually download files",
-    )
-    fetch_parser.add_argument(
-        "--export",
-        action="store_const",
-        const=True,
-        help="Export fetched data to a file",
     )
     fetch_parser.add_argument(
         "--overwrite",
@@ -154,6 +143,36 @@ def parser(prog_name: str) -> dict:
         action="store_const",
         const=True,
         help="Store files in a flat structure without subdirectories",
+    )
+
+    # Export
+    export_parser: ArgumentParser = sub_parsers.add_parser(
+        "export", help="export data from dj registry."
+    )
+    export_parser.add_argument(
+        "filepath", type=str, help="File path to save exported data"
+    )
+    export_parser.add_argument(
+        "--format",
+        dest="export_format",
+        type=str,
+        help=f"Export format, supported formats: {', '.join(EXPORT_FORMATS)}",
+    )
+    export_parser.add_argument("--domain", type=str, help="Domain to filter by")
+    export_parser.add_argument(
+        "--dataset-name", type=str, help="Dataset name to filter by"
+    )
+    export_parser.add_argument(
+        "--stage",
+        choices=[stage.value for stage in DataStage],
+        help="Data stage to filter by",
+    )
+    export_parser.add_argument("--mime", type=str, help="MIME type to filter by")
+    export_parser.add_argument("--tags", nargs="+", help="Tags to filter by")
+    export_parser.add_argument("--sha256", nargs="+", help="SHA256 hashes to filter by")
+    export_parser.add_argument("--filenames", nargs="+", help="File names to filter by")
+    export_parser.add_argument(
+        "--limit", type=int, help="Limit the number of files to export"
     )
 
     # List
@@ -181,7 +200,10 @@ def parser(prog_name: str) -> dict:
         "--description", type=str, help="Description of the dataset"
     )
     create_parser.add_argument(
-        "--config",dest="config_filepaths", nargs="+", help="File paths to config files"
+        "--config",
+        dest="config_filepaths",
+        nargs="+",
+        help="File paths to config files",
     )
     create_parser.add_argument(
         "--exists-ok",
@@ -189,7 +211,7 @@ def parser(prog_name: str) -> dict:
         const=True,
         help="Allow creating if dataset already exists",
     )
-    
+
     # Tags
     tags_parser: ArgumentParser = sub_parsers.add_parser(
         "tags", help="manage dataset tags."

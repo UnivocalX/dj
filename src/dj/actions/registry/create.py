@@ -14,10 +14,12 @@ logger: Logger = getLogger(__name__)
 
 
 class DatasetCreator(BaseAction):
-    def read_config_file(self, filepath: str) -> dict[dict]:
-        logger.info(f'Reading data relation config from file: "{str(filepath)}"')
+    def read_config_file(self, filepath: str) -> dict[str, dict]:
+        logger.debug(f'Reading data relation config from file: "{str(filepath)}"')
         config_file_metadata: FileMetadata = FileInspector(filepath).metadata
-        data_config: list[dict] = []
+
+        # Initialize as empty dict instead of list
+        data_config: dict[str, dict] = {}
 
         if config_file_metadata.mime_type in [
             "application/x-yaml",
@@ -25,10 +27,10 @@ class DatasetCreator(BaseAction):
             "text/x-yaml",
         ]:
             with open(filepath, "r") as f:
-                data_config = yaml.safe_load(f) or []
+                data_config = yaml.safe_load(f) or {}
         elif config_file_metadata.mime_type == "application/json":
             with open(filepath, "r") as f:
-                data_config = json.load(f) or []
+                data_config = json.load(f) or {}
         else:
             raise ValueError(
                 f"Unsupported config file type: {config_file_metadata.mime_type}"
@@ -36,7 +38,9 @@ class DatasetCreator(BaseAction):
 
         return data_config
 
-    def relate_data(self, dataset: DatasetRecord, data_config: dict[dict]) -> list[int]:
+    def relate_data(
+        self, dataset: DatasetRecord, data_config: dict[str, dict]
+    ) -> list[int]:
         related_file_ids: list[int] = []
 
         for data_cfg in data_config.values():
@@ -44,7 +48,7 @@ class DatasetCreator(BaseAction):
             tag_names = [tag["name"] for tag in data_cfg.get("tags", [])]
 
             try:
-                file_id: int = self.journalist.create_file_record(
+                file_record = self.journalist.create_file_record(
                     dataset,
                     data_cfg["s3bucket"],
                     data_cfg["s3prefix"],
@@ -54,18 +58,20 @@ class DatasetCreator(BaseAction):
                     data_cfg["size_bytes"],
                     DataStage[data_cfg["stage"].upper()],
                     tag_names,
-                ).id
-
-                related_file_ids.append(file_id)
+                )
+                related_file_ids.append(file_record.id)
+                logger.info(f"Added file '{data_cfg['filename']}' to dataset")
             except FileRecordExist as e:
-                logger.warning(e)
-                related_file_ids.append(file_id)
+                logger.warning(f"Skipping duplicate file: {e}")
+                # Just skip it, don't add to the list
 
         return related_file_ids
 
     def create(self, create_cfg: CreateDatasetConfig) -> list[int]:
         logger.info(f"Creating dataset '{create_cfg.domain}/{create_cfg.name}'")
 
+        formatted_dataset_name: str = f"{create_cfg.name}/{create_cfg.domain}"
+        related_file_ids: list[int] = []
         with self.journalist.transaction():
             dataset_record = self.journalist.create_dataset(
                 domain=create_cfg.domain,
@@ -75,14 +81,11 @@ class DatasetCreator(BaseAction):
             )
 
             if create_cfg.config_filepaths:
-                formatted_dataset_name: str = f"{create_cfg.name}/{create_cfg.domain}"
                 logger.info(f"Relating data for dataset '{formatted_dataset_name}'")
 
             for config_filepath in create_cfg.config_filepaths or []:
-                data_config: dict[dict] = self.read_config_file(config_filepath)
-                related_file_ids: list[int] = self.relate_data(
-                    dataset_record, data_config
-                )
+                data_config: dict[str, dict] = self.read_config_file(config_filepath)
+                related_file_ids.extend(self.relate_data(dataset_record, data_config))
 
-        logger.info(f"Successfully created '{formatted_dataset_name}'")
+        logger.info(f"Successfully created '{formatted_dataset_name}' with {len(related_file_ids)} files")
         return related_file_ids

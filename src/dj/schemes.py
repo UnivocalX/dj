@@ -138,7 +138,7 @@ class LoadDataConfig(BaseSettingsConfig):
         return tags
 
     @field_validator("paths")
-    def abs_path(cls, paths: str) -> str:
+    def abs_path(cls, paths: list[str]) -> list[str]:
         abs_paths: list[str] = []
         for path in paths:
             if os.path.exists(path):
@@ -148,9 +148,7 @@ class LoadDataConfig(BaseSettingsConfig):
         return abs_paths
 
 
-class FetchDataConfig(BaseSettingsConfig):
-    directory: str
-    limit: int
+class SearchDataConfig(BaseSettingsConfig):
     domain: str = Field(default=DEFAULT_DOMAIN)
     dataset_name: str | None = Field(default=None)
     stage: DataStage = Field(default=DataStage.RAW)
@@ -158,18 +156,33 @@ class FetchDataConfig(BaseSettingsConfig):
     tags: list[str] | None = Field(default=None)
     filenames: list[str] | None = Field(default=None)
     sha256: list[str] | None = Field(default=None)
-    export_format: str | None = Field(default="json")
-    export: bool = Field(default=False)
+    limit: int = Field(default=100)
+
+    @field_validator("domain", "dataset_name")
+    def clean_strings(cls, string: str | None) -> str | None:
+        if string:
+            string = clean_string(string)
+        return string
+
+    @field_validator("tags")
+    def clean_tags(cls, tags: list[str] | None) -> list[str] | None:
+        if tags:
+            tags = [clean_string(tag) for tag in tags]
+
+        return tags
+
+
+class FetchDataConfig(SearchDataConfig):
+    directory: str
+    limit: int
     dry: bool = Field(default=False)
     overwrite: bool = Field(default=False, description="Overwrite existing files")
     flat: bool = Field(default=False, description="Store files in a flat structure")
 
-    @field_validator("tags")
-    def serialize_tags(cls, tags: list[str] | None) -> list[str] | None:
-        if tags:
-            tags = [tag.lower() for tag in tags]
 
-        return tags
+class ExportDataConfig(SearchDataConfig):
+    filepath: str = Field(default=FETCH_FILENAME)
+    export_format: str | None = Field(default="json")
 
     @field_validator("export_format")
     def is_supported_format(cls, format: str) -> str:
@@ -177,11 +190,6 @@ class FetchDataConfig(BaseSettingsConfig):
         if cleaned_format not in EXPORT_FORMATS:
             raise ValueError(f"supported export formats: {', '.join(EXPORT_FORMATS)}")
         return cleaned_format
-
-    @computed_field  # type: ignore[misc]
-    @property
-    def fetch_export_filepath(self) -> str:
-        return os.path.join(self.directory, f"{FETCH_FILENAME}.{self.export_format}")
 
 
 class ListDatasetsConfig(BaseSettingsConfig):

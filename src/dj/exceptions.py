@@ -17,5 +17,6 @@ class FileRecordExist(Exception):
 class TagNotFound(Exception):
     pass
 
+
 class FailedToGatherFiles(Exception):
     pass

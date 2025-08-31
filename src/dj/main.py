@@ -3,8 +3,8 @@ from logging import Logger, getLogger
 from sys import exit as sys_exit
 
 from dj.actions.config import DJManager
+from dj.actions.registry.catalog import DataCatalog
 from dj.actions.registry.create import DatasetCreator
-from dj.actions.registry.fetch import DataFetcher
 from dj.actions.registry.journalist import Journalist
 from dj.actions.registry.load import DataLoader
 from dj.actions.registry.tags import DataTagger
@@ -18,6 +18,7 @@ from dj.schemes import (
     Dataset,
     DJConfig,
     DJConfigCLI,
+    ExportDataConfig,
     FetchDataConfig,
     ListDatasetsConfig,
     LoadDataConfig,
@@ -50,24 +51,12 @@ def main() -> None:
             dj_manager.configure(ConfigureDJConfig(**parsed_args))
 
         case "create":
-            try: 
+            try:
                 with DatasetCreator(dj_cfg) as dataset_creator:
                     dataset_creator.create(CreateDatasetConfig(**parsed_args))
             except DatasetExist as e:
                 logger.error(e)
                 sys_exit(1)
-
-        case "load":
-            try: 
-                with DataLoader(dj_cfg) as data_loader:
-                    data_loader.load(LoadDataConfig(**parsed_args))
-            except (DatasetExist, FailedToGatherFiles) as e:
-                logger.error(e)
-                sys_exit(1)
-
-        case "fetch":
-            with DataFetcher(dj_cfg) as data_fetcher:
-                data_fetcher.fetch(FetchDataConfig(**parsed_args))
 
         case "list":
             list_cfg = ListDatasetsConfig(**parsed_args)
@@ -82,6 +71,22 @@ def main() -> None:
 
             for dataset in datasets:
                 logger.info(pretty_format(dataset.model_dump(), title=dataset.name))
+                
+        case "load":
+            try:
+                with DataLoader(dj_cfg) as data_loader:
+                    data_loader.load(LoadDataConfig(**parsed_args))
+            except (DatasetExist, FailedToGatherFiles) as e:
+                logger.error(e)
+                sys_exit(1)
+
+        case "fetch":
+            with DataCatalog(dj_cfg) as data_catalog:
+                data_catalog.fetch(FetchDataConfig(**parsed_args))
+
+        case "export":
+            with DataCatalog(dj_cfg) as data_catalog:
+                data_catalog.export(ExportDataConfig(**parsed_args))
 
         case "tags":
             match dj_cli_cfg.subcommand:

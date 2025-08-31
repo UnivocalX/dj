@@ -261,8 +261,9 @@ def resolve_data_s3uri(
 
 def export_data(filepath: str, data: dict[str, Any]) -> None:
     format: str = os.path.splitext(filepath)[1].lower()
+    abs_filepath: str = os.path.abspath(filepath)
 
-    os.makedirs(os.path.dirname(filepath), exist_ok=True)
+    os.makedirs(os.path.dirname(abs_filepath), exist_ok=True)
     logger.debug(f"exporting data -> {filepath}")
     with open(filepath, "w") as export_file:
         if format == ".json":

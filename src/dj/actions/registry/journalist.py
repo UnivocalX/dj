@@ -119,37 +119,39 @@ class Journalist:
         )
 
     def create_dataset(
-        self,
-        domain: str,
-        name: str,
-        description: str | None = None,
-        exists_ok: bool = True,
-    ) -> DatasetRecord:
-        logger.debug(f"Creating new dataset: {name}")
-        dataset: DatasetRecord = DatasetRecord(
-            domain=domain, name=name, description=description
-        )
-        self.session.add(dataset)
+            self,
+            domain: str,
+            name: str,
+            description: str | None = None,
+            exists_ok: bool = True,
+        ) -> DatasetRecord:
+            logger.debug(f"Creating new dataset: {name}")
+            dataset: DatasetRecord = DatasetRecord(
+                domain=domain, name=name, description=description
+            )
+            self.session.add(dataset)
 
-        try:
-            self.session.commit()
-            logger.debug(f"Successfully created dataset '{name}' with ID: {dataset.id}")
-        except IntegrityError as e:
-            logger.debug(f"Dataset '{name}' already exists", exc_info=e)
-            logger.debug(f"exists_ok={exists_ok}")
-            logger.debug("rolling back")
-            self.session.rollback()
+            try:
+                self.session.commit()
+                logger.debug(f"Successfully created dataset '{name}' with ID: {dataset.id}")
+            except IntegrityError as e:
+                logger.debug(f"Dataset '{name}' already exists", exc_info=e)
+                logger.debug(f"exists_ok={exists_ok}")
+                logger.debug("rolling back")
+                self.session.rollback()
 
-            if "unique_dataset" in str(e):
-                if not exists_ok:
-                    raise DatasetExist(f"Dataset '{name}' already exists.")
+                if "unique_dataset" in str(e):
+                    if not exists_ok:
+                        raise DatasetExist(f"Dataset '{name}' already exists.")
 
-                dataset = self.get_dataset(domain, name)
-                logger.debug(f"Using existing dataset '{name}' with ID: {dataset.id}")
-            else:
-                raise
+                    existing_dataset = self.get_dataset(domain, name)
+                    assert existing_dataset is not None, f"Dataset '{name}' should exist"
+                    dataset = existing_dataset
+                    logger.debug(f"Using existing dataset '{name}' with ID: {dataset.id}")
+                else:
+                    raise
 
-        return dataset
+            return dataset
 
     def list_datasets(
         self,
@@ -203,7 +205,7 @@ class Journalist:
     # File methods
     def get_file_record_by_id(self, file_id: int) -> FileRecord:
         logger.debug(f"Getting file record by ID: {file_id}")
-        file_record: FileRecord = (
+        file_record: FileRecord | None = (
             self.session.query(FileRecord).filter(FileRecord.id == file_id).first()
         )
 
@@ -222,7 +224,7 @@ class Journalist:
             f"Searching by sha256: {sha256} in dataset {dataset_name}/{domain}"
         )
 
-        file_record: FileRecord = (
+        file_record: FileRecord | None = (
             self.session.query(FileRecord)
             .join(DatasetRecord)
             .filter(
