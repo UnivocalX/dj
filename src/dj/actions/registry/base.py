@@ -2,6 +2,7 @@ import os
 import tempfile
 from contextlib import contextmanager
 from logging import Logger, getLogger
+from typing import Any
 
 from dj.actions.registry.journalist import Journalist
 from dj.actions.storage import Storage
@@ -42,3 +43,12 @@ class BaseAction:
                     os.remove(tmpfile)
         else:
             yield datafile_src
+
+
+    def _update_ref_count(self, s3uri: str) -> None:
+        tags: dict[str, Any] = self.storage.get_obj_tags(s3uri)
+        new_ref_count: int = tags.get("ref_count", 0) + 1
+        tags["ref_count"] = new_ref_count
+        
+        logger.debug(f'updating "{s3uri}" ref count -> {new_ref_count}')
+        self.storage.put_obj_tags(tags)

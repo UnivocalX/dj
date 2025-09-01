@@ -58,7 +58,22 @@ class DatasetCreator(BaseAction):
             except FileRecordExist as e:
                 logger.warning(f"Skipping duplicate file: {e}")
             else:
-                logger.info(f"Added file '{cfg['filename']}' to dataset")
+                s3uri: str = (
+                    self.journalist.get_file_record_by_sha256(
+                        cfg["sha256"],
+                        DataStage[cfg["stage"].upper()],
+                        dataset.domain,
+                        dataset.name,
+                        cfg["s3bucket"],
+                        cfg["s3prefix"]
+                    )
+                    .pop()
+                    .s3uri
+                )
+                self._update_ref_count(s3uri)
+
+                filename: str = cfg["filename"]
+                logger.info(f'Added file "{filename}" to dataset')
 
     def create(self, create_cfg: CreateDatasetConfig) -> None:
         formatted_dataset_name: str = f"{create_cfg.domain}/{create_cfg.name}"

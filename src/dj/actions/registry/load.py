@@ -55,15 +55,22 @@ class DataLoader(BaseAction):
                     )
                 except FileRecordExist as e:
                     datafile_record = self.journalist.get_file_record_by_sha256(
+                        sha256=metadata.sha256,
+                        stage=load_cfg.stage,
                         domain=dataset.domain,  # type: ignore[arg-type]
                         dataset_name=dataset.name,  # type: ignore[arg-type]
-                        stage=load_cfg.stage,
-                        sha256=metadata.sha256,
-                    )  # type: ignore[arg-type]
+                        s3bucket=self.cfg.s3bucket, 
+                        s3prefix=self.cfg.s3prefix
+                    ).pop()  # type: ignore[arg-type]
                     logger.warning(e)
+                else:
+                    self._upload2storage(metadata.filepath, datafile_record.s3uri)
 
-                self.storage.upload(metadata.filepath, datafile_record.s3uri, False)  # type: ignore[arg-type]
             return datafile_record
+        
+    def _upload2storage(self, filepath: str, s3uri: str) -> None:
+        self.storage.upload(filepath, s3uri, False)  # type: ignore[arg-type]
+        self._update_ref_count(s3uri)
 
     def load(self, load_cfg: LoadDataConfig) -> None:
         logger.info("Starting to load files.")

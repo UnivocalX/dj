@@ -219,33 +219,35 @@ class Journalist:
 
     def get_file_record_by_sha256(
         self,
-        domain: str,
-        dataset_name: str,
-        stage: DataStage,
         sha256: str,
-    ) -> FileRecord:
+        stage: DataStage,
+        domain: str | None = None,
+        dataset_name: str | None = None,
+        s3bucket: str | None = None,
+        s3prefix: str | None = None
+    ) -> list[FileRecord]:
         logger.debug(
-            f"Searching by sha256: {sha256} in dataset {dataset_name}/{domain}"
+            f"Searching by sha256: {sha256} in stage {stage}"
+            + (f" ({domain}/{dataset_name})" if dataset_name and domain else "")
         )
 
-        file_record: FileRecord | None = (
-            self.session.query(FileRecord)
-            .join(DatasetRecord)
-            .filter(
-                FileRecord.sha256 == sha256,
-                FileRecord.stage == stage,
-                DatasetRecord.name == dataset_name,
-                DatasetRecord.domain == domain,
-            )
-            .first()
+        query = self.session.query(FileRecord).filter(
+            FileRecord.sha256 == sha256, FileRecord.stage == stage
         )
 
-        if not file_record:
-            raise FileRecordNotFound(
-                f"File record not found for sha256: {sha256} in dataset {domain}/{dataset_name}"
-            )
+        if domain:
+            query = query.filter(DatasetRecord.domain == domain)
 
-        return file_record
+        if dataset_name:
+            query = query.filter(DatasetRecord.name == dataset_name)
+
+        if s3bucket:
+            query = query.filter(FileRecord.s3bucket == s3bucket)
+            
+        if s3prefix:
+            query = query.filter(FileRecord.s3prefix == s3prefix)
+            
+        return query.all()
 
     def create_file_record(
         self,

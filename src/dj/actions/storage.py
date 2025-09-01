@@ -1,7 +1,7 @@
 import os
 import posixpath
 from logging import Logger, getLogger
-from typing import Iterable
+from typing import Any, Iterable
 
 from boto3 import client
 from botocore.config import Config as BotoConfig
@@ -102,14 +102,25 @@ class Storage:
 
         logger.debug(f"copy completed successful {src_s3uri} -> {dst_s3uri}")
 
-    def upload(self, filepath: str, dst_s3uri: str, overwrite: bool = True) -> None:
+    def upload(
+        self,
+        filepath: str,
+        dst_s3uri: str,
+        overwrite: bool = True,
+        tags: dict[str, Any] = None,
+    ) -> None:
         if not overwrite and self.obj_exists(dst_s3uri):
             logger.debug(f"File {dst_s3uri} already exists, skipping upload.")
             return
 
+        extra_args: dict = {}
+        if tags:
+            extra_args["Tagging"] = self.dict2tagset(tags)
+
         dst_s3bucket, dst_s3key = split_s3uri(dst_s3uri)
-        self.client.upload_file(filepath, dst_s3bucket, dst_s3key)
-        logger.debug(f"uploaded {filepath} -> {dst_s3uri}")
+        self.client.upload_file(filepath, dst_s3bucket, dst_s3key, ExtraArgs=extra_args)
+        logger.debug(f"Uploaded {filepath} -> {dst_s3uri}")
+        logger.debug(f"{dst_s3uri} tags: {tags if tags else 'None'}")
 
     def delete_obj(self, s3uri: str) -> None:
         s3bucket, s3key = split_s3uri(s3uri)
@@ -129,3 +140,22 @@ class Storage:
         with open(dst_path, "wb") as f:
             self.client.download_fileobj(s3bucket, s3key, f)
         logger.debug(f"downloaded {s3uri} -> {dst_path}")
+
+    def get_obj_tags(self, s3uri: str) -> dict[str, Any]:
+        s3bucket, obj_key = split_s3uri(s3uri)
+        response = self.client.get_object_tagging(Bucket=s3bucket, Key=obj_key)
+        tags: dict[str, Any] = {tag["Key"]: tag["Value"] for tag in response["TagSet"]}
+        return tags
+
+    def put_obj_tags(self, s3uri: str, tags: dict[str, Any]) -> None:
+        s3bucket, obj_key = split_s3uri(s3uri)
+
+        self.client.put_object_tagging(
+            Bucket=s3bucket,
+            Key=obj_key,
+            Tagging={'TagSet': self.dict2tagset(tags)}
+        )
+
+    @classmethod
+    def dict2tagset(tag_dict: dict[str, Any]) -> list[dict[str, str]]:
+        return [{"Key": str(k), "Value": str(v)} for k, v in tag_dict.items()]
