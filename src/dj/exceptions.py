@@ -20,3 +20,7 @@ class TagNotFound(Exception):
 
 class FailedToGatherFiles(Exception):
     pass
+
+
+class UnsuffiecentPermissions(Exception):
+    pass

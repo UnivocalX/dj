@@ -115,7 +115,7 @@ def parser(prog_name: str) -> dict:
     )
     fetch_parser.add_argument("--domain", type=str, help="Domain to filter by")
     fetch_parser.add_argument(
-        "--dataset-name", type=str, help="Dataset name to filter by"
+        "--dataset", dest="dataset_name", type=str, help="Dataset name to filter by"
     )
     fetch_parser.add_argument(
         "--stage",
@@ -160,7 +160,7 @@ def parser(prog_name: str) -> dict:
     )
     export_parser.add_argument("--domain", type=str, help="Domain to filter by")
     export_parser.add_argument(
-        "--dataset-name", type=str, help="Dataset name to filter by"
+        "--dataset", dest="dataset_name", type=str, help="Dataset name to filter by"
     )
     export_parser.add_argument(
         "--stage",

@@ -224,15 +224,17 @@ class Journalist:
         domain: str | None = None,
         dataset_name: str | None = None,
         s3bucket: str | None = None,
-        s3prefix: str | None = None
+        s3prefix: str | None = None,
     ) -> list[FileRecord]:
         logger.debug(
             f"Searching by sha256: {sha256} in stage {stage}"
             + (f" ({domain}/{dataset_name})" if dataset_name and domain else "")
         )
 
-        query = self.session.query(FileRecord).filter(
-            FileRecord.sha256 == sha256, FileRecord.stage == stage
+        query = (
+            self.session.query(FileRecord)
+            .join(FileRecord.dataset)
+            .filter(FileRecord.sha256 == sha256, FileRecord.stage == stage)
         )
 
         if domain:
@@ -243,10 +245,10 @@ class Journalist:
 
         if s3bucket:
             query = query.filter(FileRecord.s3bucket == s3bucket)
-            
+
         if s3prefix:
             query = query.filter(FileRecord.s3prefix == s3prefix)
-            
+
         return query.all()
 
     def create_file_record(
@@ -309,7 +311,7 @@ class Journalist:
                     exc_info=e,
                 )
                 raise FileRecordExist(
-                    f'File record "{filename}" ({sha256}) already exists in "{formatted_dataset_name}".'
+                    f'File record "{filename}" ({sha256[:10]}...) already exists.'
                 ) from e
             raise
 

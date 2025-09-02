@@ -10,7 +10,14 @@ from dj.actions.registry.load import DataLoader
 from dj.actions.registry.tags import DataTagger
 from dj.cli import parser
 from dj.constants import PROGRAM_NAME
-from dj.exceptions import DatasetExist, FailedToGatherFiles
+from dj.exceptions import (
+    DatasetExist,
+    DatasetNotFound,
+    FailedToGatherFiles,
+    FileRecordNotFound,
+    TagNotFound,
+    UnsuffiecentPermissions,
+)
 from dj.logging import configure_logging
 from dj.schemes import (
     ConfigureDJConfig,
@@ -46,53 +53,56 @@ def main() -> None:
     logger.debug(f"DJ Config: {dj_manager.cfg.model_dump()}")
 
     dj_cfg: DJConfig = dj_manager.cfg.model_copy(update=parsed_args)
-    match dj_cli_cfg.command:
-        case "config":
-            dj_manager.configure(ConfigureDJConfig(**parsed_args))
+    try:
+        match dj_cli_cfg.command:
+            case "config":
+                dj_manager.configure(ConfigureDJConfig(**parsed_args))
 
-        case "create":
-            try:
+            case "create":
                 with DatasetCreator(dj_cfg) as dataset_creator:
                     dataset_creator.create(CreateDatasetConfig(**parsed_args))
-            except DatasetExist as e:
-                logger.error(e)
-                sys_exit(1)
 
-        case "list":
-            list_cfg = ListDatasetsConfig(**parsed_args)
+            case "list":
+                list_cfg = ListDatasetsConfig(**parsed_args)
+                with Journalist(dj_cfg) as journalist:
+                    datasets: list[Dataset] = journalist.list_datasets(
+                        domain=list_cfg.domain,
+                        name_pattern=list_cfg.name_pattern,
+                        limit=list_cfg.limit,
+                        offset=list_cfg.offset,
+                    )
 
-            with Journalist(dj_cfg) as journalist:
-                datasets: list[Dataset] = journalist.list_datasets(
-                    domain=list_cfg.domain,
-                    name_pattern=list_cfg.name_pattern,
-                    limit=list_cfg.limit,
-                    offset=list_cfg.offset,
-                )
+                for dataset in datasets:
+                    logger.info(pretty_format(dataset.model_dump(), title=dataset.name))
 
-            for dataset in datasets:
-                logger.info(pretty_format(dataset.model_dump(), title=dataset.name))
-
-        case "load":
-            try:
+            case "load":
                 with DataLoader(dj_cfg) as data_loader:
                     data_loader.load(LoadDataConfig(**parsed_args))
-            except (DatasetExist, FailedToGatherFiles) as e:
-                logger.error(e)
-                sys_exit(1)
 
-        case "fetch":
-            with DataCatalog(dj_cfg) as data_catalog:
-                data_catalog.fetch(FetchDataConfig(**parsed_args))
+            case "fetch":
+                with DataCatalog(dj_cfg) as data_catalog:
+                    data_catalog.fetch(FetchDataConfig(**parsed_args))
 
-        case "export":
-            with DataCatalog(dj_cfg) as data_catalog:
-                data_catalog.export(ExportDataConfig(**parsed_args))
+            case "export":
+                with DataCatalog(dj_cfg) as data_catalog:
+                    data_catalog.export(ExportDataConfig(**parsed_args))
 
-        case "tags":
-            match dj_cli_cfg.subcommand:
-                case "add":
-                    with DataTagger(dj_cfg) as data_tagger:
-                        data_tagger.add(TagsConfig(**parsed_args))
-                case "remove":
-                    with DataTagger(dj_cfg) as data_tagger:
-                        data_tagger.remove(TagsConfig(**parsed_args))
+            case "tags":
+                match dj_cli_cfg.subcommand:
+                    case "add":
+                        with DataTagger(dj_cfg) as data_tagger:
+                            data_tagger.add(TagsConfig(**parsed_args))
+                    case "remove":
+                        with DataTagger(dj_cfg) as data_tagger:
+                            data_tagger.remove(TagsConfig(**parsed_args))
+
+    except (
+        UnsuffiecentPermissions,
+        DatasetExist,
+        DatasetNotFound,
+        FailedToGatherFiles,
+        FileRecordNotFound,
+        TagNotFound,
+    ) as e:
+        logger.error(e)
+        sys_exit(1)

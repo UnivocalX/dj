@@ -1,5 +1,6 @@
 import os
 import posixpath
+from functools import wraps
 from logging import Logger, getLogger
 from typing import Any, Iterable
 
@@ -7,10 +8,35 @@ from boto3 import client
 from botocore.config import Config as BotoConfig
 from botocore.exceptions import ClientError
 
+from dj.exceptions import UnsuffiecentPermissions
 from dj.schemes import StorageConfig
 from dj.utils import split_s3uri
 
 logger: Logger = getLogger(__name__)
+
+
+class CustomS3Client:
+    def __init__(self, client):
+        self._client = client
+
+    def __getattr__(self, name):
+        attr = getattr(self._client, name)
+        if callable(attr):
+
+            @wraps(attr)
+            def wrapped(*args, **kwargs):
+                try:
+                    return attr(*args, **kwargs)
+                except ClientError as e:
+                    error_code = e.response.get("Error", {}).get("Code")
+                    if error_code == "403":
+                        raise UnsuffiecentPermissions(
+                            "Verify that your access keys are valid and associated with an appropriate role."
+                        ) from e
+                    raise
+
+            return wrapped
+        return attr
 
 
 class Storage:
@@ -19,7 +45,7 @@ class Storage:
         logger.debug(f"Storage endpoint: {self.cfg.s3endpoint or 'default'}")
 
     @property
-    def client(self) -> client:
+    def client(self) -> CustomS3Client:
         client_config: BotoConfig = BotoConfig(
             retries={"max_attempts": 3, "mode": "standard"}
         )
@@ -31,7 +57,8 @@ class Storage:
         if self.cfg.s3endpoint:
             client_params["endpoint_url"] = self.cfg.s3endpoint
 
-        return client("s3", **client_params)
+        raw_client = client("s3", **client_params)
+        return CustomS3Client(raw_client)
 
     def obj_exists(self, s3uri: str) -> bool:
         s3bucket, s3key = split_s3uri(s3uri)
@@ -151,11 +178,9 @@ class Storage:
         s3bucket, obj_key = split_s3uri(s3uri)
 
         self.client.put_object_tagging(
-            Bucket=s3bucket,
-            Key=obj_key,
-            Tagging={'TagSet': self.dict2tagset(tags)}
+            Bucket=s3bucket, Key=obj_key, Tagging={"TagSet": self.dict2tagset(tags)}
         )
 
     @classmethod
-    def dict2tagset(tag_dict: dict[str, Any]) -> list[dict[str, str]]:
+    def dict2tagset(self, tag_dict: dict[str, Any]) -> list[dict[str, str]]:
         return [{"Key": str(k), "Value": str(v)} for k, v in tag_dict.items()]

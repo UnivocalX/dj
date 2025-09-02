@@ -47,8 +47,8 @@ class BaseAction:
 
     def _update_ref_count(self, s3uri: str) -> None:
         tags: dict[str, Any] = self.storage.get_obj_tags(s3uri)
-        new_ref_count: int = tags.get("ref_count", 0) + 1
+        new_ref_count: int = int(tags.get("ref_count", 0)) + 1
         tags["ref_count"] = new_ref_count
         
         logger.debug(f'updating "{s3uri}" ref count -> {new_ref_count}')
-        self.storage.put_obj_tags(tags)
+        self.storage.put_obj_tags(s3uri, tags)
