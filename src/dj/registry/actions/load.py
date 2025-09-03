@@ -166,7 +166,8 @@ class DataLoader(RegistryActor):
                     .pop()
                     .s3uri
                 )
-                self._increment_ref_count(s3uri)
+                if self.storage.obj_exists(s3uri):
+                    self._increment_ref_count(s3uri)
 
                 filename: str = cfg["filename"]
                 logger.info(f'Added file "{filename}" to dataset')
