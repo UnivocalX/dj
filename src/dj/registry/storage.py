@@ -32,7 +32,7 @@ class CustomS3Client:
                     if error_code == "403":
                         raise UnsuffiecentPermissions(
                             "Verify that your access keys are valid and associated with an appropriate role."
-                        ) from e
+                        )
                     raise
 
             return wrapped
@@ -134,7 +134,7 @@ class Storage:
         filepath: str,
         dst_s3uri: str,
         overwrite: bool = True,
-        tags: dict[str, Any] = None,
+        tags: dict[str, Any] | None = None,
     ) -> None:
         if not overwrite and self.obj_exists(dst_s3uri):
             logger.debug(f"File {dst_s3uri} already exists, skipping upload.")

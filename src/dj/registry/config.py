@@ -4,24 +4,24 @@ from logging import Logger, getLogger
 
 import yaml
 
-from dj.constants import DJCFG_FILENAME, PROGRAM_NAME
-from dj.schemes import ConfigureDJConfig, DJConfig
+from dj.constants import REGISTRY_CFG_FILENAME
+from dj.schemes import ConfigureRegistryConfig, RegistryConfig
 from dj.utils import pretty_format, resolve_internal_dir
 
 logger: Logger = getLogger(__name__)
 
 
-class DJManager:
-    def __init__(self, cfg: DJConfig | None = None, warn: bool = True):
-        self._cfg: DJConfig | None = cfg
+class RegistryConfigManager:
+    def __init__(self, cfg: RegistryConfig | None = None, warn: bool = True):
+        self._registry_cfg: RegistryConfig | None = cfg
         self.warn: bool = warn
 
     @cached_property
     def cfg_filepath(self) -> str:
-        return os.path.join(resolve_internal_dir(), DJCFG_FILENAME)
+        return os.path.join(resolve_internal_dir(), REGISTRY_CFG_FILENAME)
 
     @cached_property
-    def cfg(self) -> DJConfig:
+    def cfg(self) -> RegistryConfig:
         # Load config from file if exists
         dict_cfg: dict = {}
         logger.info(f'Loading configuration from "{self.cfg_filepath}"\n')
@@ -33,16 +33,18 @@ class DJManager:
 
         try:
             # Update with file config if available
-            cfg: DJConfig = DJConfig(**dict_cfg)
+            cfg: RegistryConfig = RegistryConfig(**dict_cfg)
         except ValueError as e:
             logger.warning(f"Invalid config ({self.cfg_filepath})\n{str(e)}")
 
         # Override with instance config if provided
-        if self._cfg is not None:
-            cfg = self._cfg.model_copy(update=cfg.model_dump(exclude_unset=True))
+        if self._registry_cfg is not None:
+            cfg = self._registry_cfg.model_copy(
+                update=cfg.model_dump(exclude_unset=True)
+            )
         return cfg
 
-    def configure(self, cfg: ConfigureDJConfig) -> None:
+    def configure(self, cfg: ConfigureRegistryConfig) -> None:
         logger.debug(f"new config: {cfg.model_dump()}")
         current_cfg_dict: dict = self.cfg.model_dump()
         updates: dict = cfg.model_dump(exclude_unset=True)
@@ -67,10 +69,10 @@ class DJManager:
             needs_update = True
 
         if (
-            "set_registry_endpoint" in updates
-            and updates["set_registry_endpoint"] != self.cfg.registry_endpoint
+            "set_database_endpoint" in updates
+            and updates["set_database_endpoint"] != self.cfg.database_endpoint
         ):
-            updated_cfg["registry_endpoint"] = updates["set_registry_endpoint"]
+            updated_cfg["database_endpoint"] = updates["set_database_endpoint"]
             needs_update = True
 
         if "set_echo" in updates and updates["set_echo"] != self.cfg.echo:
@@ -98,6 +100,4 @@ class DJManager:
         else:
             logger.debug("No configuration changes needed")
 
-        logger.info(
-            pretty_format(updated_cfg, title=f"\n{PROGRAM_NAME.upper()} Configuration")
-        )
+        logger.info(pretty_format(updated_cfg, title="\nRegistry Configuration"))

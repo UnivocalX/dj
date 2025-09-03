@@ -4,16 +4,16 @@ from contextlib import contextmanager
 from logging import Logger, getLogger
 from typing import Any
 
-from dj.actions.registry.journalist import Journalist
-from dj.actions.storage import Storage
-from dj.schemes import DJConfig
+from dj.registry.journalist import Journalist
+from dj.registry.storage import Storage
+from dj.schemes import RegistryConfig
 
 logger: Logger = getLogger(__name__)
 
 
-class BaseAction:
-    def __init__(self, cfg: DJConfig):
-        self.cfg: DJConfig = cfg
+class RegistryActor:
+    def __init__(self, cfg: RegistryConfig):
+        self.cfg: RegistryConfig = cfg
         self.storage: Storage = Storage(cfg)
         self.journalist: Journalist = Journalist(cfg)
 
@@ -44,11 +44,18 @@ class BaseAction:
         else:
             yield datafile_src
 
-
-    def _update_ref_count(self, s3uri: str) -> None:
+    def _increment_ref_count(self, s3uri: str) -> None:
         tags: dict[str, Any] = self.storage.get_obj_tags(s3uri)
         new_ref_count: int = int(tags.get("ref_count", 0)) + 1
         tags["ref_count"] = new_ref_count
-        
+
+        logger.debug(f'updating "{s3uri}" ref count -> {new_ref_count}')
+        self.storage.put_obj_tags(s3uri, tags)
+
+    def _decrement_ref_count(self, s3uri: str) -> None:
+        tags: dict[str, Any] = self.storage.get_obj_tags(s3uri)
+        new_ref_count: int = int(tags.get("ref_count", 1)) - 1
+        tags["ref_count"] = new_ref_count
+
         logger.debug(f'updating "{s3uri}" ref count -> {new_ref_count}')
         self.storage.put_obj_tags(s3uri, tags)

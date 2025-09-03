@@ -7,10 +7,16 @@ from sqlalchemy import Engine, create_engine
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, sessionmaker
 
-from dj.actions.registry.models import Base, DatasetRecord, FileRecord, TagRecord
 from dj.constants import DataStage
-from dj.exceptions import DatasetExist, FileRecordExist, FileRecordNotFound, TagNotFound
-from dj.schemes import Dataset, RegistryConfig
+from dj.exceptions import (
+    DatasetExist,
+    DatasetNotFound,
+    FileRecordExist,
+    FileRecordNotFound,
+    TagNotFound,
+)
+from dj.registry.models import Base, DatasetRecord, FileRecord, TagRecord
+from dj.schemes import DatabaseConfig, Dataset
 from dj.utils import resolve_data_s3uri
 
 T = TypeVar("T")
@@ -18,10 +24,10 @@ logger: Logger = getLogger(__name__)
 
 
 class Journalist:
-    def __init__(self, cfg: RegistryConfig):
-        self.cfg: RegistryConfig = cfg
+    def __init__(self, cfg: DatabaseConfig):
+        self.cfg: DatabaseConfig = cfg
         logger.debug(
-            f"Initializing Journalist with registry endpoint: {self.cfg.registry_endpoint}"
+            f"Initializing Journalist with registry endpoint: {self.cfg.database_endpoint}"
         )
 
         self.engine: Engine = self._create_engine()
@@ -31,8 +37,8 @@ class Journalist:
         logger.debug("Creating database tables...")
         Base.metadata.create_all(self.engine)
 
-        if str(self.cfg.registry_endpoint).startswith("sqlite"):
-            db_path = str(self.cfg.registry_endpoint).replace("sqlite:///", "")
+        if str(self.cfg.database_endpoint).startswith("sqlite"):
+            db_path = str(self.cfg.database_endpoint).replace("sqlite:///", "")
             if os.path.exists(db_path):
                 logger.debug(
                     f"SQLite database file created successfully at: {os.path.abspath(db_path)}"
@@ -57,7 +63,7 @@ class Journalist:
         self.close()
 
     def _create_engine(self) -> Engine:
-        logger.debug(f"Creating database engine for: {self.cfg.registry_endpoint}")
+        logger.debug(f"Creating database engine for: {self.cfg.database_endpoint}")
 
         kwargs: dict = {
             "echo": self.cfg.echo,
@@ -66,7 +72,7 @@ class Journalist:
         }
 
         # SQLite specific configuration
-        if str(self.cfg.registry_endpoint).startswith("sqlite"):
+        if str(self.cfg.database_endpoint).startswith("sqlite"):
             logger.debug("Configuring SQLite-specific engine settings")
             kwargs.update(
                 {
@@ -76,7 +82,7 @@ class Journalist:
             )
 
         # PostgreSQL specific configuration
-        elif str(self.cfg.registry_endpoint).startswith(("postgresql", "postgres")):
+        elif str(self.cfg.database_endpoint).startswith(("postgresql", "postgres")):
             logger.debug("Configuring PostgreSQL-specific engine settings")
             kwargs.update(
                 {
@@ -86,7 +92,7 @@ class Journalist:
             )
 
         logger.debug(f"Engine configuration: {kwargs}")
-        engine = create_engine(str(self.cfg.registry_endpoint), **kwargs)
+        engine = create_engine(str(self.cfg.database_endpoint), **kwargs)
         logger.debug("Database engine created successfully")
         return engine
 
@@ -111,12 +117,19 @@ class Journalist:
         self,
         domain: str,
         name: str,
-    ) -> DatasetRecord | None:
-        return (
+    ) -> DatasetRecord:
+        formatted_dataset_name: str = f"{domain}/{name}"
+        logger.debug(f'Attempting to get "{formatted_dataset_name}"')
+
+        dataset: DatasetRecord | None = (
             self.session.query(DatasetRecord)
             .filter(DatasetRecord.name == name, DatasetRecord.domain == domain)
             .first()
         )
+        if not dataset:
+            raise DatasetNotFound(f'Failed to find dataset "{formatted_dataset_name}".')
+
+        return dataset
 
     def create_dataset(
         self,
@@ -131,12 +144,14 @@ class Journalist:
         )
         self.session.add(dataset)
 
+        formatted_dataset_name: str = f"{domain}/{name}"
         try:
             self.session.commit()
             logger.debug(f"Successfully created dataset '{name}' with ID: {dataset.id}")
         except IntegrityError as e:
-            logger.debug(f"Dataset '{name}' already exists", exc_info=e)
-            logger.debug(f"exists_ok={exists_ok}")
+            logger.debug(
+                f'Dataset "{formatted_dataset_name}" already exists', exc_info=e
+            )
             logger.debug("rolling back")
             self.session.rollback()
 
@@ -145,12 +160,17 @@ class Journalist:
                 or "UNIQUE constraint failed: datasets.name, datasets.domain" in str(e)
             ):
                 if not exists_ok:
-                    raise DatasetExist(f"Dataset '{name}' already exists.")
+                    raise DatasetExist(
+                        f'Dataset "{formatted_dataset_name}" already exists.'
+                    )
 
                 existing_dataset = self.get_dataset(domain, name)
-                assert existing_dataset is not None, f"Dataset '{name}' should exist"
+                assert existing_dataset is not None, (
+                    f'Dataset "{formatted_dataset_name}" should exist'
+                )
+
                 dataset = existing_dataset
-                logger.debug(f"Using existing dataset '{name}' with ID: {dataset.id}")
+                logger.debug(f'Using existing dataset "{formatted_dataset_name}"')
             else:
                 raise
 
@@ -172,7 +192,6 @@ class Journalist:
             logger.debug(f"Filtering datasets by name pattern: {name_pattern}")
             query = query.filter(DatasetRecord.name.contains(name_pattern))
 
-        # Apply pagination
         if offset is not None:
             logger.debug(f"Applying offset: {offset}")
             query = query.offset(offset)
@@ -205,9 +224,18 @@ class Journalist:
 
         return result
 
+    def delete_dataset(self, domain: str, name: str) -> None:
+        formatted_dataset_name: str = f"{domain}/{name}"
+        logger.debug(f"Attempting to delete dataset: {formatted_dataset_name}")
+
+        dataset: DatasetRecord = self.get_dataset(domain, name)
+        self.session.delete(dataset)
+        self.session.commit()
+        logger.debug(f'Successfully deleted dataset "{formatted_dataset_name}"')
+
     # File methods
     def get_file_record_by_id(self, file_id: int) -> FileRecord:
-        logger.debug(f"Getting file record by ID: {file_id}")
+        logger.debug(f"Searching file record by ID: {file_id}")
         file_record: FileRecord | None = (
             self.session.query(FileRecord).filter(FileRecord.id == file_id).first()
         )
@@ -217,7 +245,7 @@ class Journalist:
 
         return file_record
 
-    def get_file_record_by_sha256(
+    def get_file_records_by_sha256(
         self,
         sha256: str,
         stage: DataStage,
@@ -227,7 +255,7 @@ class Journalist:
         s3prefix: str | None = None,
     ) -> list[FileRecord]:
         logger.debug(
-            f"Searching by sha256: {sha256} in stage {stage}"
+            f"Searching by sha256: {sha256}, stage {stage}"
             + (f" ({domain}/{dataset_name})" if dataset_name and domain else "")
         )
 
@@ -250,6 +278,17 @@ class Journalist:
             query = query.filter(FileRecord.s3prefix == s3prefix)
 
         return query.all()
+
+    def get_file_records_by_dataset(self, domain: str, name: str) -> list[FileRecord]:
+        formatted_dataset_name: str =  f"{domain}/{name}"
+        logger.debug(f'Searching by dataset: {formatted_dataset_name}')
+
+        dataset: DatasetRecord = self.get_dataset(domain, name)
+        file_records: list[FileRecord] = (
+            self.session.query(FileRecord).filter(FileRecord.dataset_id == dataset.id).all()
+        )
+        logger.debug(f'{formatted_dataset_name} includes {len(file_records)} files')
+        return file_records
 
     def create_file_record(
         self,
@@ -312,7 +351,7 @@ class Journalist:
                 )
                 raise FileRecordExist(
                     f'File record "{filename}" ({sha256[:10]}...) already exists.'
-                ) from e
+                )
             raise
 
         return datafile

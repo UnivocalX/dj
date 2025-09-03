@@ -291,4 +291,3 @@ def generate_unique_filepath(filepath: str) -> str:
         unique_path = f"{base} ({counter}){extension}"
 
     return unique_path
-

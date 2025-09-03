@@ -18,7 +18,7 @@ def parser(prog_name: str) -> dict:
     main_parser.add_argument("--s3bucket", type=str, help="S3 bucket for data storage")
     main_parser.add_argument("--s3endpoint", type=str, help="S3 endpoint URL")
     main_parser.add_argument(
-        "--registry-endpoint", type=str, help="Registry (db) endpoint URL"
+        "--database-endpoint", type=str, help="database endpoint URL"
     )
     main_parser.add_argument(
         "--echo", action="store_const", const=True, help="Echo SQL commands"
@@ -48,15 +48,15 @@ def parser(prog_name: str) -> dict:
 
     # Config
     config_parser: ArgumentParser = sub_parsers.add_parser(
-        "config", help="configure dj settings."
+        "config", help="configure registry settings."
     )
     config_parser.add_argument("--set-s3endpoint", type=str, help="Set S3 endpoint URL")
     config_parser.add_argument("--set-s3bucket", type=str, help="Set S3 bucket")
     config_parser.add_argument("--set-s3prefix", type=str, help="Set S3 prefix")
     config_parser.add_argument(
-        "--set-registry-endpoint",
+        "--set-database-endpoint",
         type=str,
-        help="Set registry (db) endpoint URL",
+        help="Set database endpoint URL",
     )
     config_parser.add_argument(
         "--set-echo",
@@ -73,7 +73,7 @@ def parser(prog_name: str) -> dict:
 
     # Load
     load_parser: ArgumentParser = sub_parsers.add_parser(
-        "load", help="load data into dj registry."
+        "load", help="load data into registry."
     )
     load_parser.add_argument(
         "paths",
@@ -105,7 +105,7 @@ def parser(prog_name: str) -> dict:
 
     # Fetch
     fetch_parser: ArgumentParser = sub_parsers.add_parser(
-        "fetch", help="fetch data from dj registry."
+        "fetch", help="fetch data from registry."
     )
     fetch_parser.add_argument(
         "directory", type=str, help="Directory to save fetched files"
@@ -147,7 +147,7 @@ def parser(prog_name: str) -> dict:
 
     # Export
     export_parser: ArgumentParser = sub_parsers.add_parser(
-        "export", help="export data from dj registry."
+        "export", help="export data from registry."
     )
     export_parser.add_argument(
         "filepath", type=str, help="File path to save exported data"
@@ -192,7 +192,7 @@ def parser(prog_name: str) -> dict:
 
     # Create
     create_parser: ArgumentParser = sub_parsers.add_parser(
-        "create", help="create a new dj dataset."
+        "create", help="create a new dataset."
     )
     create_parser.add_argument("name", type=str, help="Name of the dataset")
     create_parser.add_argument("--domain", type=str, help="Domain of the dataset")
@@ -211,6 +211,13 @@ def parser(prog_name: str) -> dict:
         const=True,
         help="Allow creating if dataset already exists",
     )
+
+    # Delete
+    delete_parser: ArgumentParser = sub_parsers.add_parser(
+        "delete", help="delete dataset."
+    )
+    delete_parser.add_argument("name", type=str, help="Name of the dataset")
+    delete_parser.add_argument("--domain", type=str, help="Domain of the dataset")
 
     # Tags
     tags_parser: ArgumentParser = sub_parsers.add_parser(

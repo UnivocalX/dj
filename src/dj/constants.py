@@ -10,7 +10,7 @@ class DataStage(str, Enum):
 
 PROGRAM_NAME: str = "dj"
 DISTRO_NAME: str = "univocalx-dj"
-DJCFG_FILENAME: str = "config.yaml"
+REGISTRY_CFG_FILENAME: str = "config.yaml"
 ASSETS_DIRECTORY: str = "assets"
 FETCH_FILENAME: str = "fetch"
 EXPORT_FORMATS: list[str] = ["yaml", "yml", "json"]

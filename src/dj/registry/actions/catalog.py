@@ -1,15 +1,15 @@
 import os
 from logging import Logger, getLogger
 
-from dj.actions.registry.base import BaseAction
-from dj.actions.registry.models import DatasetRecord, FileRecord, TagRecord
+from dj.registry.actions.actor import RegistryActor
+from dj.registry.models import DatasetRecord, FileRecord, TagRecord
 from dj.schemes import ExportDataConfig, FetchDataConfig, SearchDataConfig
 from dj.utils import export_data, pretty_bar, pretty_format
 
 logger: Logger = getLogger(__name__)
 
 
-class DataCatalog(BaseAction):
+class DataCatalog(RegistryActor):
     def _unique_records(self, file_records: list[FileRecord]) -> list[FileRecord]:
         unique_records: list[FileRecord] = []
         seen_sha256: set[str] = set()

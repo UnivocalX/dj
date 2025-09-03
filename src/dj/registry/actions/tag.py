@@ -1,28 +1,15 @@
 from logging import Logger, getLogger
 
-from dj.actions.registry.journalist import Journalist
-from dj.actions.registry.models import DatasetRecord, FileRecord
 from dj.exceptions import DatasetNotFound, FileRecordNotFound
-from dj.schemes import DJConfig, TagsConfig
+from dj.registry.actions.actor import RegistryActor
+from dj.registry.models import DatasetRecord, FileRecord
+from dj.schemes import TagConfig
 from dj.utils import pretty_bar, pretty_format
 
 logger: Logger = getLogger(__name__)
 
 
-class DataTagger:
-    def __init__(self, cfg: DJConfig):
-        self.cfg: DJConfig = cfg
-        self.journalist: Journalist = Journalist(cfg)
-
-    def __enter__(self):
-        logger.debug("Entering DataAction context manager")
-        return self
-
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        logger.debug("Exiting DataAction context manager")
-        self.journalist.close()
-        return None
-
+class DataTagger(RegistryActor):
     def _get_file_records(
         self,
         domain: str,
@@ -52,7 +39,7 @@ class DataTagger:
 
         return query.all()
 
-    def add(self, add_cfg: TagsConfig) -> list[FileRecord]:
+    def add(self, add_cfg: TagConfig) -> list[FileRecord]:
         logger.info(pretty_format(add_cfg.model_dump(), title="Add Tags Config"))
 
         if not self.journalist.get_dataset(add_cfg.domain, add_cfg.dataset_name):
@@ -80,7 +67,7 @@ class DataTagger:
         logger.info(f"Successfully added tags {add_cfg.tags}")
         return file_records
 
-    def remove(self, remove_cfg: TagsConfig) -> list[FileRecord]:
+    def remove(self, remove_cfg: TagConfig) -> list[FileRecord]:
         logger.info(pretty_format(remove_cfg.model_dump(), title="Remove Tags Config"))
 
         if not self.journalist.get_dataset(remove_cfg.domain, remove_cfg.dataset_name):

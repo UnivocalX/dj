@@ -58,8 +58,8 @@ class StorageConfig(BaseSettingsConfig):
     s3endpoint: str | None = Field(default=None)
 
 
-class RegistryConfig(BaseSettingsConfig):
-    registry_endpoint: str | None = Field(
+class DatabaseConfig(BaseSettingsConfig):
+    database_endpoint: str | None = Field(
         default=None,
         description="Database connection URL. If not provided, SQLite will be used.",
     )
@@ -75,9 +75,9 @@ class RegistryConfig(BaseSettingsConfig):
         description="The number of connections to allow in connection pool overflow",
     )
 
-    @field_validator("registry_endpoint")
+    @field_validator("database_endpoint")
     @classmethod
-    def set_default_registry_url(cls, v: str | None) -> str:
+    def set_default_database_url(cls, v: str | None) -> str:
         if v is None:
             db_path: Path = Path(resolve_internal_dir()) / f"{PROGRAM_NAME}.db"
             return f"sqlite:///{db_path.absolute()}"
@@ -93,19 +93,19 @@ class RegistryConfig(BaseSettingsConfig):
         return v
 
 
-class DJConfig(StorageConfig, RegistryConfig):
+class RegistryConfig(StorageConfig, DatabaseConfig):
     s3bucket: str | None = Field(default=None)
     s3prefix: str = Field(default=PROGRAM_NAME)
     plain: bool = Field(default=False, description="disable loading bar")
 
 
-class ConfigureDJConfig(BaseSettingsConfig):
+class ConfigureRegistryConfig(BaseSettingsConfig):
     set_s3endpoint: str | None = Field(default=None, description="Set S3 endpoint URL")
     set_s3bucket: str | None = Field(default=None, description="Set S3 bucket")
     set_s3prefix: str | None = Field(default=None, description="Set S3 prefix")
 
-    set_registry_endpoint: str | None = Field(
-        default=None, description="Set registry (db) endpoint URL"
+    set_database_endpoint: str | None = Field(
+        default=None, description="Set database endpoint URL"
     )
     set_echo: bool = Field(default=False, description="Enable SQL command echoing")
     set_pool_size: int | None = Field(
@@ -203,7 +203,7 @@ class ListDatasetsConfig(BaseSettingsConfig):
         return clean_string(v)
 
 
-class TagsConfig(BaseSettingsConfig):
+class TagConfig(BaseSettingsConfig):
     dataset_name: str
     domain: str = Field(default=DEFAULT_DOMAIN)
     tags: list[str] = Field(..., description="Tags names")
@@ -232,6 +232,15 @@ class CreateDatasetConfig(BaseSettingsConfig):
         default=None, description="YAML/JSON file(s) with data relation configuration"
     )
     exists_ok: bool = Field(default=False)
+
+    @field_validator("domain", "name")
+    def clean_strings(cls, string: str) -> str:
+        return clean_string(string)
+
+
+class DeleteDatasetConfig(BaseSettingsConfig):
+    name: str
+    domain: str = Field(default=DEFAULT_DOMAIN)
 
     @field_validator("domain", "name")
     def clean_strings(cls, string: str) -> str:
