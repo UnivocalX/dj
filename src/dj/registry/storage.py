@@ -1,3 +1,5 @@
+import copy
+import json
 import os
 import posixpath
 from functools import wraps
@@ -8,7 +10,7 @@ from boto3 import client
 from botocore.config import Config as BotoConfig
 from botocore.exceptions import ClientError
 
-from dj.exceptions import UnsuffiecentPermissions
+from dj.exceptions import S3KeyNotFound, UnsuffiecentPermissions
 from dj.schemes import StorageConfig
 from dj.utils import split_s3uri
 
@@ -33,6 +35,8 @@ class CustomS3Client:
                         raise UnsuffiecentPermissions(
                             "Verify that your access keys are valid and associated with an appropriate role."
                         )
+                    elif e.response["Error"]["Code"] == "404":
+                        raise S3KeyNotFound("Failed to find s3 object")
                     raise
 
             return wrapped
@@ -43,6 +47,16 @@ class Storage:
     def __init__(self, cfg: StorageConfig | None = None):
         self.cfg: StorageConfig = cfg or StorageConfig()
         logger.debug(f"Storage endpoint: {self.cfg.s3endpoint or 'default'}")
+        self._check_connection()
+
+    def _check_connection(self):
+        logger.debug('Checking connection by listing buckets.')
+        try:
+            self.client.list_buckets()
+        except Exception:
+            raise UnsuffiecentPermissions(
+                "Failed to list buckets please make you have the required permissions"
+            )
 
     @property
     def client(self) -> CustomS3Client:
@@ -66,11 +80,8 @@ class Storage:
             self.client.head_object(Bucket=s3bucket, Key=s3key)
             logger.debug(f"{s3key} Exist.")
             return True
-        except ClientError as e:
-            if e.response["Error"]["Code"] == "404":
-                return False
-            else:
-                raise
+        except S3KeyNotFound:
+            return False
 
     def prefix_exists(self, s3uri: str) -> bool:
         s3bucket, s3prefix = split_s3uri(s3uri)
@@ -82,10 +93,8 @@ class Storage:
                     Bucket=s3bucket, Prefix=s3prefix, MaxKeys=1
                 ).get("Contents")
             )
-        except ClientError as e:
-            if e.response["Error"]["Code"] == "404":
-                return False
-            raise
+        except S3KeyNotFound:
+            return False
 
     def list_objects(
         self,
@@ -164,8 +173,7 @@ class Storage:
 
         os.makedirs(os.path.dirname(dst_path), exist_ok=True)
         s3bucket, s3key = split_s3uri(s3uri)
-        with open(dst_path, "wb") as f:
-            self.client.download_fileobj(s3bucket, s3key, f)
+        self.client.download_file(s3bucket, s3key, dst_path)
         logger.debug(f"downloaded {s3uri} -> {dst_path}")
 
     def get_obj_tags(self, s3uri: str) -> dict[str, Any]:
@@ -184,3 +192,75 @@ class Storage:
     @classmethod
     def dict2tagset(self, tag_dict: dict[str, Any]) -> list[dict[str, str]]:
         return [{"Key": str(k), "Value": str(v)} for k, v in tag_dict.items()]
+
+    def update_bucket_policy(self, s3bucket: str, s3bucket_policy: dict) -> dict:
+        try:
+            response = self.client.get_bucket_policy(Bucket=s3bucket)
+            existing_policy: dict = json.loads(response["Policy"])
+            merged_policy: dict = copy.deepcopy(s3bucket_policy)
+
+            new_sids: dict = {stmt.get("Sid") for stmt in merged_policy["Statement"]}
+
+            for stmt in existing_policy["Statement"]:
+                if stmt.get("Sid") not in new_sids:
+                    merged_policy["Statement"].append(stmt)
+
+            s3bucket_policy = merged_policy
+
+        except ClientError as e:
+            if e.response["Error"]["Code"] == "NoSuchBucketPolicy":
+                logger.debug(f"No existing policy found for bucket {s3bucket}")
+            else:
+                raise e
+
+        try:
+            response = self.client.put_bucket_policy(
+                Bucket=s3bucket, Policy=json.dumps(s3bucket_policy)
+            )
+        except ClientError as e:
+            raise e
+
+        logger.debug(f"Successfully updated bucket policy for {s3bucket}")
+        return s3bucket_policy
+
+    def add_lifecycle_rule(self, s3bucket: str, lifecycle_rule: dict) -> dict:
+        new_rule_id: str = lifecycle_rule.get("ID")
+
+        if not new_rule_id:
+            raise ValueError("Lifecycle rule must have an 'ID' field")
+
+        try:
+            # Get existing lifecycle configuration
+            response = self.client.get_bucket_lifecycle_configuration(Bucket=s3bucket)
+            existing_rules: list = response.get("Rules", [])
+
+            # Check for existing rule with same ID and overwrite if found
+            updated_rules: list = []
+            rule_replaced: bool = False
+
+            for existing_rule in existing_rules:
+                if existing_rule.get("ID") == new_rule_id:
+                    updated_rules.append(lifecycle_rule)
+                    rule_replaced = True
+                    logger.warning(f'Replaced existing rule with ID: "{new_rule_id}"')
+                else:
+                    updated_rules.append(existing_rule)
+
+            if not rule_replaced:
+                updated_rules.append(lifecycle_rule)
+                logger.debug(f'Added new rule with ID: "{new_rule_id}"')
+
+        except ClientError as e:
+            if e.response["Error"]["Code"] == "NoSuchLifecycleConfiguration":
+                updated_rules = [lifecycle_rule]
+                logger.debug(
+                    f'Created new lifecycle configuration with rule ID: "{new_rule_id}"'
+                )
+            else:
+                raise e
+
+        response = self.client.put_bucket_lifecycle_configuration(
+            Bucket=s3bucket, LifecycleConfiguration={"Rules": updated_rules}
+        )
+
+        return updated_rules

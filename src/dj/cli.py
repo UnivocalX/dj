@@ -2,7 +2,7 @@ from argparse import ArgumentParser
 from importlib.metadata import version
 from logging import Logger, getLogger
 
-from dj.constants import DISTRO_NAME, EXPORT_FORMATS, DataStage
+from dj.constants import DISTRO_NAME, DataStage
 
 logger: Logger = getLogger(__name__)
 
@@ -152,12 +152,7 @@ def parser(prog_name: str) -> dict:
     export_parser.add_argument(
         "filepath", type=str, help="File path to save exported data"
     )
-    export_parser.add_argument(
-        "--format",
-        dest="export_format",
-        type=str,
-        help=f"Export format, supported formats: {', '.join(EXPORT_FORMATS)}",
-    )
+
     export_parser.add_argument("--domain", type=str, help="Domain to filter by")
     export_parser.add_argument(
         "--dataset", dest="dataset_name", type=str, help="Dataset name to filter by"
@@ -219,6 +214,11 @@ def parser(prog_name: str) -> dict:
     delete_parser.add_argument("name", type=str, help="Name of the dataset")
     delete_parser.add_argument("--domain", type=str, help="Domain of the dataset")
 
+    # Enforce
+    sub_parsers.add_parser(
+        "enforce", help="apply data polices (data deletion protection and lifecycle rule)."
+    )
+    
     # Tags
     tags_parser: ArgumentParser = sub_parsers.add_parser(
         "tags", help="manage dataset tags."

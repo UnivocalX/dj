@@ -182,14 +182,15 @@ class FetchDataConfig(SearchDataConfig):
 
 class ExportDataConfig(SearchDataConfig):
     filepath: str = Field(default=FETCH_FILENAME)
-    export_format: str | None = Field(default="json")
 
-    @field_validator("export_format")
-    def is_supported_format(cls, format: str) -> str:
-        cleaned_format: str = clean_string(format)
-        if cleaned_format not in EXPORT_FORMATS:
+    @field_validator("filepath")
+    def is_supported_format(cls, filepath: str) -> str:
+        format: str = os.path.splitext(filepath)[1].lower().replace(".", "")
+        
+        if format not in EXPORT_FORMATS:
             raise ValueError(f"supported export formats: {', '.join(EXPORT_FORMATS)}")
-        return cleaned_format
+
+        return filepath
 
 
 class ListDatasetsConfig(BaseSettingsConfig):

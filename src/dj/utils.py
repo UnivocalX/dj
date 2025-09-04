@@ -16,6 +16,7 @@ from tqdm import tqdm
 from dj.constants import (
     ASSETS_DIRECTORY,
     DEFAULT_DELAY,
+    EXPORT_FORMATS,
     FALSE_STRINGS,
     PROGRAM_NAME,
     TRUE_STRINGS,
@@ -272,7 +273,7 @@ def export_data(filepath: str, data: Any) -> None:
             yaml.dump(data, export_file, indent=4)
         else:
             raise ValueError(
-                f"Unsupported file format: {format}. Supported formats: .json, .yaml, .yml, .csv"
+                f"Unsupported file format: {format}. Supported formats: {EXPORT_FORMATS}"
             )
 
 

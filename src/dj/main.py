@@ -15,6 +15,7 @@ from dj.exceptions import (
 from dj.logging import configure_logging
 from dj.registry.actions.catalog import DataCatalog
 from dj.registry.actions.delete import DataDeleter
+from dj.registry.actions.enforce import PolicyEnforcer
 from dj.registry.actions.load import DataLoader
 from dj.registry.actions.tag import DataTagger
 from dj.registry.config import RegistryConfigManager
@@ -98,6 +99,8 @@ def main() -> None:
                 with DataDeleter(registry_cfg) as data_deleter:
                     data_deleter.delete_dataset(DeleteDatasetConfig(**parsed_args))
 
+            case "enforce":
+                PolicyEnforcer(registry_cfg).enforce()
             case "tags":
                 match dj_cli_cfg.subcommand:
                     case "add":
