@@ -216,9 +216,10 @@ def parser(prog_name: str) -> dict:
 
     # Enforce
     sub_parsers.add_parser(
-        "enforce", help="apply data polices (data deletion protection and lifecycle rule)."
+        "enforce",
+        help="apply data polices (data deletion protection and lifecycle rule).",
     )
-    
+
     # Tags
     tags_parser: ArgumentParser = sub_parsers.add_parser(
         "tags", help="manage dataset tags."

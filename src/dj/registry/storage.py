@@ -232,7 +232,9 @@ class Storage:
             existing_policy: dict = json.loads(response["Policy"])
             merged_policy: dict = copy.deepcopy(s3bucket_policy)
 
-            new_sids: dict = {stmt.get("Sid") for stmt in merged_policy["Statement"]}
+            new_sids: set[Any] = {
+                stmt.get("Sid") for stmt in merged_policy["Statement"]
+            }
 
             for stmt in existing_policy["Statement"]:
                 if stmt.get("Sid") not in new_sids:
@@ -256,8 +258,8 @@ class Storage:
         logger.debug(f"Successfully updated bucket policy for {s3bucket}")
         return s3bucket_policy
 
-    def add_lifecycle_rule(self, s3bucket: str, lifecycle_rule: dict) -> dict:
-        new_rule_id: str = lifecycle_rule.get("ID")
+    def add_lifecycle_rule(self, s3bucket: str, lifecycle_rule: dict) -> list:
+        new_rule_id: str | None = str(lifecycle_rule.get("ID"))
 
         if not new_rule_id:
             raise ValueError("Lifecycle rule must have an 'ID' field")

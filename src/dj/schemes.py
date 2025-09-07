@@ -186,7 +186,7 @@ class ExportDataConfig(SearchDataConfig):
     @field_validator("filepath")
     def is_supported_format(cls, filepath: str) -> str:
         format: str = os.path.splitext(filepath)[1].lower().replace(".", "")
-        
+
         if format not in EXPORT_FORMATS:
             raise ValueError(f"supported export formats: {', '.join(EXPORT_FORMATS)}")
 

@@ -54,15 +54,15 @@ class DataCatalog(RegistryActor):
                 os.path.basename(file_record.s3uri),
                 file_record.mime_type if not flat else None,  # type: ignore[arg-type]
             )
-            try: 
+            try:
                 self.storage.download_obj(
                     file_record.s3uri,  # type: ignore[arg-type]
                     local_filepath,
                     overwrite=overwrite,
                 )
             except S3KeyNotFound:
-                logger.warning(f'Missing object: {file_record.s3uri}')
-                
+                logger.warning(f"Missing object: {file_record.s3uri}")
+
     def search(self, cfg: SearchDataConfig) -> list[FileRecord]:
         logger.info("Searching for files in catalog.")
         logger.info(

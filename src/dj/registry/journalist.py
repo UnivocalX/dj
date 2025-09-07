@@ -280,14 +280,16 @@ class Journalist:
         return query.all()
 
     def get_file_records_by_dataset(self, domain: str, name: str) -> list[FileRecord]:
-        formatted_dataset_name: str =  f"{domain}/{name}"
-        logger.debug(f'Searching by dataset: {formatted_dataset_name}')
+        formatted_dataset_name: str = f"{domain}/{name}"
+        logger.debug(f"Searching by dataset: {formatted_dataset_name}")
 
         dataset: DatasetRecord = self.get_dataset(domain, name)
         file_records: list[FileRecord] = (
-            self.session.query(FileRecord).filter(FileRecord.dataset_id == dataset.id).all()
+            self.session.query(FileRecord)
+            .filter(FileRecord.dataset_id == dataset.id)
+            .all()
         )
-        logger.debug(f'{formatted_dataset_name} includes {len(file_records)} files')
+        logger.debug(f"{formatted_dataset_name} includes {len(file_records)} files")
         return file_records
 
     def create_file_record(

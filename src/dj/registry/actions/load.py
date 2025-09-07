@@ -72,7 +72,7 @@ class DataLoader(RegistryActor):
 
             self._upload2storage(
                 str(metadata.filepath),
-                datafile_record.s3uri,
+                datafile_record.s3uri,  # type: ignore[arg-type]
                 increment,
             )  # type: ignore[arg-type]
             return datafile_record
