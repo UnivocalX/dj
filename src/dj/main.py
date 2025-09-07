@@ -9,6 +9,7 @@ from dj.exceptions import (
     DatasetNotFound,
     FailedToGatherFiles,
     FileRecordNotFound,
+    S3BucketNotFound,
     TagNotFound,
     UnsuffiecentPermissions,
 )
@@ -111,6 +112,7 @@ def main() -> None:
                             data_tagger.remove(TagConfig(**parsed_args))
 
     except (
+        S3BucketNotFound,
         UnsuffiecentPermissions,
         DatasetExist,
         DatasetNotFound,

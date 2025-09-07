@@ -25,6 +25,8 @@ class FailedToGatherFiles(Exception):
 class UnsuffiecentPermissions(Exception):
     pass
 
+class S3BucketNotFound(Exception):
+    pass
 
 class S3KeyNotFound(Exception):
     pass

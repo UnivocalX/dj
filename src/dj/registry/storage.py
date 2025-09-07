@@ -7,10 +7,11 @@ from logging import Logger, getLogger
 from typing import Any, Iterable
 
 from boto3 import client
+from boto3.exceptions import S3UploadFailedError
 from botocore.config import Config as BotoConfig
 from botocore.exceptions import ClientError
 
-from dj.exceptions import S3KeyNotFound, UnsuffiecentPermissions
+from dj.exceptions import S3BucketNotFound, S3KeyNotFound, UnsuffiecentPermissions
 from dj.schemes import StorageConfig
 from dj.utils import split_s3uri
 
@@ -29,14 +30,46 @@ class CustomS3Client:
             def wrapped(*args, **kwargs):
                 try:
                     return attr(*args, **kwargs)
-                except ClientError as e:
-                    error_code = e.response.get("Error", {}).get("Code")
-                    if error_code == "403":
-                        raise UnsuffiecentPermissions(
-                            "Verify that your access keys are valid and associated with an appropriate role."
-                        )
-                    elif e.response["Error"]["Code"] == "404":
-                        raise S3KeyNotFound("Failed to find s3 object")
+                except (S3UploadFailedError, ClientError) as e:
+                    # Handle S3UploadFailedError by extracting underlying ClientError
+                    if isinstance(e, S3UploadFailedError):
+                        # Try to extract the underlying exception
+                        if hasattr(e, "last_exception") and hasattr(
+                            e.last_exception, "response"
+                        ):
+                            client_error = e.last_exception
+                            error_code = client_error.response.get("Error", {}).get(
+                                "Code"
+                            )
+                        else:
+                            # Fallback: check the string representation for specific errors
+                            error_message = str(e)
+                            if "NoSuchBucket" in error_message:
+                                raise S3BucketNotFound("Failed to find s3 bucket")
+                            elif (
+                                "403" in error_message
+                                or "AccessDenied" in error_message
+                            ):
+                                raise UnsuffiecentPermissions(
+                                    "Verify that your access keys are valid and associated with an appropriate role."
+                                )
+                            elif "404" in error_message or "NoSuchKey" in error_message:
+                                raise S3KeyNotFound("Failed to find s3 key")
+                            raise
+                    else:
+                        error_code = e.response.get("Error", {}).get("Code")
+
+                    # Process the error code (only if we successfully extracted it)
+                    if "error_code" in locals():
+                        if error_code == "NoSuchBucket":
+                            raise S3BucketNotFound("Failed to find s3 bucket")
+                        elif error_code == "403" or error_code == "AccessDenied":
+                            raise UnsuffiecentPermissions(
+                                "Verify that your access keys are valid and associated with an appropriate role."
+                            )
+                        elif error_code == "404" or error_code == "NoSuchKey":
+                            raise S3KeyNotFound("Failed to find s3 key")
+
                     raise
 
             return wrapped
@@ -50,7 +83,7 @@ class Storage:
         self._check_connection()
 
     def _check_connection(self):
-        logger.debug('Checking connection by listing buckets.')
+        logger.debug("Checking connection by listing buckets.")
         try:
             self.client.list_buckets()
         except Exception:
