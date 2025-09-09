@@ -1,6 +1,6 @@
 [project]
 name = "univocalx-dj"
-version = "1.0.1"
+version = "1.0.0"
 description = ""
 authors = [
     {name = "elad jerbi",email = "eladxjerbi@gmail.com"}
