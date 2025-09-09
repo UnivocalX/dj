@@ -14,6 +14,7 @@ on:
       - "docs/**"
       - ".gitignore"
       - ".github/workflows/**"
+      - "pyproject.toml"
 
 jobs:
   test:
